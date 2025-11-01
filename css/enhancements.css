@@ -57,23 +57,6 @@
     50%, 100% { opacity: 0; }
 }
 
-/* Hide cursor on mobile for cleaner look */
-@media (max-width: 767px) {
-    .s-intro .text-huge-title {
-        min-height: 500px;
-    }
-    
-    .typewriter-text .Typewriter__cursor {
-        display: none;
-    }
-}
-
-@media (max-width: 500px) {
-    .s-intro .text-huge-title {
-        min-height: 450px;
-    }
-}
-
 /* ===================================================================
  * Enhanced Project Card Hover Effects
  * ------------------------------------------------------------------- */
