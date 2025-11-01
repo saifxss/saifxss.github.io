@@ -24,7 +24,7 @@
                 .typeString('A Unity Expert')
                 .pauseFor(2000)
                 .deleteAll()
-                .typeString('A Systems & Tools Developer')
+                .typeString('A Systems Developer')
                 .pauseFor(2000)
                 .deleteAll()
                 .typeString('A UI/UX Enthusiast')
