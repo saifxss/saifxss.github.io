@@ -31,7 +31,6 @@
 .s-intro .intro-content {
     height: 100vh; /* Fixed viewport height */
 }
-
 .s-intro .text-huge-title {
     min-height: 600px; /* Fixed height for the entire title block */
 }
