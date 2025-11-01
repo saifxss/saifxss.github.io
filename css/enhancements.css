@@ -33,6 +33,12 @@
     font-weight: 600;
     display: inline-block;
     min-height: 1.2em;
+    min-width: 450px; /* Prevent layout shift during typing */
+    text-align: left;
+}
+
+.typewriter-text .Typewriter__wrapper {
+    display: inline-block;
 }
 
 .typewriter-text .Typewriter__cursor {
@@ -48,8 +54,18 @@
 
 /* Hide cursor on mobile for cleaner look */
 @media (max-width: 767px) {
+    .typewriter-text {
+        min-width: 300px;
+    }
+    
     .typewriter-text .Typewriter__cursor {
         display: none;
+    }
+}
+
+@media (max-width: 500px) {
+    .typewriter-text {
+        min-width: 250px;
     }
 }
 
