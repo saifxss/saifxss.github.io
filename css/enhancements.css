@@ -26,15 +26,23 @@
 }
 
 /* ===================================================================
+ * Intro Section Fixed Size (Prevent Layout Shift)
+ * ------------------------------------------------------------------- */
+.s-intro .intro-content {
+    height: 100vh; /* Fixed viewport height */
+}
+
+.s-intro .text-huge-title {
+    min-height: 600px; /* Fixed height for the entire title block */
+}
+
+/* ===================================================================
  * Typewriter Effect Styles
  * ------------------------------------------------------------------- */
 .typewriter-text {
     color: var(--color-1, #eabe7c);
     font-weight: 600;
     display: inline-block;
-    min-height: 1.2em;
-    min-width: 450px; /* Prevent layout shift during typing */
-    text-align: left;
 }
 
 .typewriter-text .Typewriter__wrapper {
@@ -54,8 +62,8 @@
 
 /* Hide cursor on mobile for cleaner look */
 @media (max-width: 767px) {
-    .typewriter-text {
-        min-width: 300px;
+    .s-intro .text-huge-title {
+        min-height: 500px;
     }
     
     .typewriter-text .Typewriter__cursor {
@@ -64,8 +72,8 @@
 }
 
 @media (max-width: 500px) {
-    .typewriter-text {
-        min-width: 250px;
+    .s-intro .text-huge-title {
+        min-height: 450px;
     }
 }
 
