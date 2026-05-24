@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       template = template.slice(0, i) + resourceScript + template.slice(i);
     }
 
-    // Parse the template and swap the root element. Scripts inserted via
+    // Parse the template and swap the root element. Scripts inserted via 
     // DOMParser/replaceWith are inert per spec — re-create each with
     // createElement so they execute, awaiting onload for src scripts to
     // preserve ordering (React before ReactDOM before Babel before text/babel).
