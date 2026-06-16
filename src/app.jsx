@@ -27,7 +27,7 @@ const FEATURED_KEYS = ["Maleficus", "Draft Fever Bowl", "The Plooshies"];
 const HERO_ROLES = [
   "Unity developer,",
   "Gameplay engineer,",
-  "UI systems architect,",
+  "UI programmer,",
 ];
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
