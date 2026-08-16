@@ -63,7 +63,7 @@ full mapping and the file size on every run:
 Task 2: 6 with media, 1 without:
      maleficus-arena.png      <- gifs/maleficus.gif  (name differs)  24.2 MB  << TOO BIG
      tikto-king-board.png     <- images/tikto.king-board.jpg  250 KB
-     super-one-shop.png       no file — shows the NDA note
+     shells-and-tails.png     <- images/shells_and_tails.png  1.6 MB
 ```
 
 Matching is by name, ignoring extension, case, dots, dashes and underscores —
