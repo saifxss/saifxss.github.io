@@ -150,6 +150,23 @@
     position: absolute; inset: 0; width: 100%; height: 100%;
     object-fit: cover; display: block;
   }
+  /* "Now playing" readout — red, outlined so it stays legible on any frame of
+     the gameplay media underneath. text-shadow rather than -webkit-text-stroke,
+     which thins the glyphs at 11px. z-index keeps it above the media overlay. */
+  .now-playing {
+    color: #ff2b2b !important;
+    z-index: 2;
+    text-shadow:
+       1px  1px 0 #000,  -1px  1px 0 #000,
+       1px -1px 0 #000,  -1px -1px 0 #000,
+       0 2px 4px rgba(0, 0, 0, 0.9);
+  }
+  /* The blinking cue is part of the same readout, so it matches. */
+  .now-playing > span:first-child {
+    background: #ff2b2b !important;
+    box-shadow: 0 0 0 1px #000, 0 0 6px rgba(255, 43, 43, 0.9);
+  }
+
   /* Per-project store/video link, under the bullets in the cabinet panel. */
   .project-link {
     align-self: flex-start;
@@ -273,7 +290,6 @@
   <section id="top" style="position:relative;min-height:calc(100vh - 62px);display:grid;grid-template-columns:1fr;align-content:center;overflow:hidden;border-bottom:1px solid rgba(240,237,230,0.12)">
     <div style="position:absolute;inset:0;background-color:#15131A;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.045) 0 1px,transparent 1px 9px)"></div>
     <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 78% 20%, oklch(0.62 0.16 320 / 0.16), transparent 62%)"></div>
-    <div style="position:absolute;right:44px;bottom:34px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;letter-spacing:0.06em;color:rgba(240,237,230,0.5)">showreel.mp4 — 30s gameplay cut</div>
     <div style="position:relative;max-width:1320px;margin:0 auto;padding:96px 44px;width:100%;box-sizing:border-box">
       <h1 style="font-weight:800;font-size:clamp(52px,8.4vw,132px);line-height:0.92;letter-spacing:-0.035em;word-spacing:0.12em;text-transform:uppercase;margin:0 0 8px">Unity<br>Developer</h1>
       <div style="font-family:Spectral,Georgia,serif;font-style:italic;font-weight:300;font-size:clamp(24px,2.9vw,42px);line-height:1.2;color:oklch(0.78 0.1 320);margin:0 0 40px">gameplay systems, UI architecture, netcode</div>
@@ -356,14 +372,13 @@
                 <span>No footage — NDA restricted</span>
               </div>
             </sc-if>
-            <div style="position:absolute;top:20px;left:26px;display:flex;align-items:center;gap:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:oklch(0.8 0.13 320)">
+            <div class="now-playing" style="position:absolute;top:20px;left:26px;display:flex;align-items:center;gap:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:oklch(0.8 0.13 320)">
               <span style="width:7px;height:7px;background:oklch(0.72 0.16 320);animation:blink 1.1s steps(1) infinite"></span>Now playing — {{ active.num }} / 07
             </div>
             <div style="position:relative;font-weight:800;font-size:clamp(30px,3.4vw,46px);line-height:1;letter-spacing:-0.03em;text-transform:uppercase;text-shadow:0 0 26px oklch(0.62 0.16 320 / 0.5)">{{ active.title }}</div>
             <div style="position:relative;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:rgba(240,237,230,0.7)">
               <span style="border:1px solid rgba(240,237,230,0.24);padding:6px 11px">{{ active.platform }}</span>
               <span style="border:1px solid rgba(240,237,230,0.24);padding:6px 11px">{{ active.year }}</span>
-              <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:0.06em;text-transform:none;color:rgba(240,237,230,0.5)">{{ active.shot }}</span>
             </div>
           </div>
 
@@ -527,7 +542,7 @@
 <script type="text/x-dc" data-dc-script="" data-props="{&quot;revealOnScroll&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Behaviour&quot;}}">
 const PROJECTS = [
   {
-    title: "Maleficus", link: "https://www.youtube.com/watch?v=ot-bKn4FcaU", linkLabel: "Watch the demo", year: "2025", platform: "PC", media: "gifs/maleficus.gif", nofoot: false, featured: true,
+    title: "Maleficus", link: "https://www.youtube.com/watch?v=ot-bKn4FcaU", linkLabel: "Watch the demo", year: "2025", platform: "PC", shot: "maleficus-arena.png", media: "gifs/maleficus.gif", nofoot: false, featured: true,
     kind: "Multiplayer arena spell game. Refactored a coupled codebase into an event-driven architecture with strict UI/gameplay separation.",
     stack: "Unity · C# · Photon", tech: ["Unity", "C#", "Photon", "Event-driven"],
     bullets: [
@@ -537,7 +552,7 @@ const PROJECTS = [
     ]
   },
   {
-    title: "Tikto King", year: "2025", platform: "Mobile", media: "images/tikto.king-board.jpg", nofoot: false,
+    title: "Tikto King", year: "2025", platform: "Mobile", shot: "tikto-king-board.png", media: "images/tikto.king-board.jpg", nofoot: false,
     kind: "Multi-game platform with a Minimax + Alpha-Beta pruning AI for Ultimate Tic-Tac-Toe.",
     stack: "Unity · C# · Game AI", tech: ["Unity", "C#", "Minimax AI"],
     bullets: [
@@ -547,33 +562,7 @@ const PROJECTS = [
     ]
   },
   {
-    title: "Draft Fever Bowl", link: "https://store.steampowered.com/app/3100820/Draft_Fever_Bowl/", linkLabel: "Steam store", year: "2024", platform: "Steam", media: "images/draft_fever_bowl.jpg", nofoot: false,
-    kind: "Football management sim. Delivered the full UI layer inside a 20+ person production.",
-    stack: "Unity · C# · Steam", tech: ["Unity", "C#", "UI systems"],
-    bullets: [
-      "Delivered the full UI layer — landing page, settings menu, live scoreboard, and a responsive popup framework — within a 20+ person production.",
-      "Authored shared utility scripts and animation helpers that accelerated early-stage feature work across the team."
-    ]
-  },
-  {
-    title: "The Plooshies", link: "https://x.com/ThePlooshies/status/1828855091933159454", linkLabel: "See it on X", year: "2024", platform: "WebGL", media: "images/plooshies.jpg", nofoot: false,
-    kind: "WebGL multiplayer party game. Photon Fusion netcode and in-browser performance work.",
-    stack: "Unity · Photon Fusion", tech: ["Unity", "Photon Fusion", "WebGL"],
-    bullets: [
-      "Integrated Photon Fusion multiplayer and optimised UI for stable in-browser WebGL performance.",
-      "Cleared gameplay bugs and tuned moment-to-moment feel through live team testing against a hard demo deadline."
-    ]
-  },
-  {
-    title: "Albert's Ark Idle", link: "https://store.steampowered.com/app/3088750/Alberts_Ark_Idle/", linkLabel: "Steam store", year: "2024", platform: "Steam", media: "gifs/alberts_ark.gif", nofoot: false,
-    kind: "2D idle clicker. Core progression systems — experience, levelling, currency — through to release.",
-    stack: "Unity · C# · Steam", tech: ["Unity", "C#", "Progression"],
-    bullets: [
-      "Built core progression systems (experience, levelling, currency) and early-stage UI, plus bug fixing and stability improvements through to release."
-    ]
-  },
-  {
-    title: "The Amazing SaniBoy", link: "https://play.google.com/store/apps/details?id=com.readytoplay.saniboy&hl=en_US", linkLabel: "Google Play", year: "2023", platform: "Google Play", media: "gifs/saniboy.gif", nofoot: false,
+    title: "The Amazing SaniBoy", link: "https://play.google.com/store/apps/details?id=com.readytoplay.saniboy&hl=en_US", linkLabel: "Google Play", year: "2023", platform: "Google Play", shot: "saniboy-gameplay.png", media: "gifs/saniboy.gif", nofoot: false,
     kind: "Mobile action game past 100,000 downloads at 4.7 stars. Owned UI, gameplay, and backend integration.",
     stack: "Unity · C# · Android", tech: ["Unity", "Android", "Ads", "Leaderboards"],
     bullets: [
@@ -584,12 +573,38 @@ const PROJECTS = [
     ]
   },
   {
-    title: "Shells And Tails", link: "https://www.youtube.com/watch?v=yojNNBnJC4A&t=1s", linkLabel: "Watch on YouTube", year: "2022", platform: "PC", media: "images/shells_and_tails.png", nofoot: false,
+    title: "Draft Fever Bowl", link: "https://store.steampowered.com/app/3100820/Draft_Fever_Bowl/", linkLabel: "Steam store", year: "2024", platform: "Steam", shot: "draft-fever-bowl-ui.png", media: "images/draft_fever_bowl.jpg", nofoot: false,
+    kind: "Football management sim. Delivered the full UI layer inside a 20+ person production.",
+    stack: "Unity · C# · Steam", tech: ["Unity", "C#", "UI systems"],
+    bullets: [
+      "Delivered the full UI layer — landing page, settings menu, live scoreboard, and a responsive popup framework — within a 20+ person production.",
+      "Authored shared utility scripts and animation helpers that accelerated early-stage feature work across the team."
+    ]
+  },
+  {
+    title: "The Plooshies", link: "https://x.com/ThePlooshies/status/1828855091933159454", linkLabel: "See it on X", year: "2024", platform: "WebGL", shot: "plooshies-party.png", media: "images/plooshies.jpg", nofoot: false,
+    kind: "WebGL multiplayer party game. Photon Fusion netcode and in-browser performance work.",
+    stack: "Unity · Photon Fusion", tech: ["Unity", "Photon Fusion", "WebGL"],
+    bullets: [
+      "Integrated Photon Fusion multiplayer and optimised UI for stable in-browser WebGL performance.",
+      "Cleared gameplay bugs and tuned moment-to-moment feel through live team testing against a hard demo deadline."
+    ]
+  },
+  {
+    title: "Shells And Tails", link: "https://www.youtube.com/watch?v=yojNNBnJC4A&t=1s", linkLabel: "Watch on YouTube", year: "2022", platform: "PC", shot: "shells-and-tails.png", media: "images/shells_and_tails.png", nofoot: false,
     kind: "Four-player split-screen showdown — four wildly different rule sets, one shared chaos.",
     stack: "Unity · C# · Local multiplayer", tech: ["Unity", "C#", "Local multiplayer"],
     bullets: [
       "Built the gameplay for each rule-set mini-game, each with its own win condition and feel.",
-      "Wired the split-screen camera rig and two-player local input handling."
+      "Wired the split-screen camera rig and four-player local input handling."
+    ]
+  },
+  {
+    title: "Albert's Ark Idle", link: "https://store.steampowered.com/app/3088750/Alberts_Ark_Idle/", linkLabel: "Steam store", year: "2024", platform: "Steam", shot: "alberts-ark-idle.png", media: "gifs/alberts_ark.gif", nofoot: false,
+    kind: "2D idle clicker. Core progression systems — experience, levelling, currency — through to release.",
+    stack: "Unity · C# · Steam", tech: ["Unity", "C#", "Progression"],
+    bullets: [
+      "Built core progression systems (experience, levelling, currency) and early-stage UI, plus bug fixing and stability improvements through to release."
     ]
   }
 ];
