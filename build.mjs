@@ -15,7 +15,8 @@
 // transform targets, the build fails loudly naming the transform, rather than
 // silently dropping a fix and shipping a regression.
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from "node:fs";
+import { extname } from "node:path";
 import { gunzipSync } from "node:zlib";
 
 const BUNDLE = "bundle/index.bundle.html";
@@ -158,6 +159,23 @@ const CSS = `
     position: absolute; inset: 0; width: 100%; height: 100%;
     object-fit: cover; display: block;
   }
+  /* Shown instead of a still when a project has nothing shippable. */
+  .no-footage {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(240, 237, 230, 0.62);
+    text-align: center; padding: 24px; pointer-events: none;
+  }
+  .no-footage-mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 1px solid rgba(240, 237, 230, 0.28);
+    font-size: 13px; letter-spacing: 0;
+    color: rgba(240, 237, 230, 0.5);
+  }
 
   /* ── ≤1024px — tablet ── */
   @media (max-width: 1024px) {
@@ -282,26 +300,96 @@ html = edit("contact-cta-row", html,
 // placeholder. Once the gameplay stills/GIFs exist in images/, swap in a real
 // lazy-loaded <img> under the CRT overlays.
 //
-// This is gated on the files actually being present. An <img> pointing at a
-// missing file 404s on every project switch, and the runtime turns HTML into
-// React elements, so an inline onerror="" handler is passed to React as a
-// string prop and throws (React error #231) — there is no cheap client-side
-// fallback here. Dropping the files into images/ and rebuilding is the switch.
-const shots = [...html.matchAll(/shot:\s*"([^"]+)"/g)].map((m) => m[1]);
-const haveShots = shots.filter((f) => existsSync(`images/${f}`));
+// Resolution is per project, not all-or-nothing, so a single delivered file can
+// be previewed on its own. Each PROJECTS entry gains two fields:
+//   media    resolved path, or "" when nothing was found
+//   nofoot   true when there is no media at all
+// and the panel carries one <sc-if> for each, so a project with nothing shows
+// the "no footage" note instead of a broken image.
+//
+// gifs/ WINS over images/: drop an animated capture in gifs/ and it overrides
+// the still of the same name without touching images/.
+//
+// Why a build-time gate rather than a client-side one: the runtime turns this
+// HTML into React elements, so an inline onerror="" reaches React as a string
+// prop and throws (React error #231). An <img> pointing at a missing file would
+// just 404 on every project switch with no way to recover.
+const MEDIA_EXT = [".gif", ".webp", ".avif", ".png", ".jpg", ".jpeg", ".mp4", ".webm"];
+const MEDIA_DIRS = ["gifs", "images"]; // search order — first hit wins
+const norm = (f) => f.toLowerCase().replace(/\.[^.]+$/, "").replace(/[^a-z0-9]/g, "");
 
-if (haveShots.length === shots.length && shots.length > 0) {
-  html = edit("project-media", html,
-    '<div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:{{ active.anim }} 460ms cubic-bezier(.2,.8,.3,1)">',
-    '<div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:{{ active.anim }} 460ms cubic-bezier(.2,.8,.3,1)">\n' +
-    '            <img class="shot-media" src="images/{{ active.shot }}" alt="{{ active.title }} — gameplay" loading="lazy" decoding="async" width="800" height="500">\n' +
-    '            <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.15),rgba(14,13,17,0.88));pointer-events:none"></div>');
-  mediaNote = `project media wired for ${shots.length} shots`;
-} else {
-  mediaNote = [
-    `project media NOT wired — ${haveShots.length}/${shots.length} files present in images/.`,
-    `     missing: ${shots.filter((f) => !haveShots.includes(f)).join(", ")}`,
-    `     Drop them in and re-run; the striped placeholder ships until then.`,
+const listDir = (d) =>
+  existsSync(d) ? readdirSync(d).filter((f) => MEDIA_EXT.includes(extname(f).toLowerCase())) : [];
+
+function resolveMedia(shot) {
+  const want = norm(shot);
+  for (const dir of MEDIA_DIRS) {
+    const pool = listDir(dir);
+    // 1. exact filename, 2. same name with a different extension,
+    // 3. a single unambiguous prefix match (saniboy.png -> saniboy-gameplay.png)
+    let hit = pool.find((f) => f === shot) || pool.find((f) => norm(f) === want);
+    let how = hit ? "" : null;
+    if (!hit) {
+      const near = pool.filter((f) => want.startsWith(norm(f)) || norm(f).startsWith(want));
+      if (near.length === 1) { hit = near[0]; how = "  (name differs)"; }
+      else if (near.length > 1) return { note: `ambiguous in ${dir}/ (${near.join(", ")}) — rename one` };
+    }
+    if (hit) return { path: `${dir}/${hit}`, note: `<- ${dir}/${hit}${how || ""}` };
+  }
+  return { note: "no file — shows the NDA note" };
+}
+
+// Anything past this lands in the arcade panel on load, so it is Largest
+// Contentful Paint. A 24MB GIF will not score.
+const MEDIA_WARN_BYTES = 2 * 1024 * 1024;
+
+const notes = [];
+const oversized = [];
+let withMedia = 0, withoutMedia = 0;
+const mediaFor = new Map();
+
+for (const shot of [...html.matchAll(/shot:\s*"([^"]+)"/g)].map((m) => m[1])) {
+  const r = resolveMedia(shot);
+  mediaFor.set(shot, r.path || "");
+  if (r.path) withMedia++; else withoutMedia++;
+  let size = "";
+  if (r.path) {
+    const bytes = statSync(r.path).size;
+    const mb = bytes / 1048576;
+    size = `  ${mb < 1 ? (bytes / 1024).toFixed(0) + " KB" : mb.toFixed(1) + " MB"}`;
+    if (bytes > MEDIA_WARN_BYTES) { size += "  << TOO BIG"; oversized.push(`${r.path} (${mb.toFixed(1)} MB)`); }
+  }
+  notes.push(`     ${shot.padEnd(24)} ${r.note}${size}`);
+}
+
+// Inject the resolved path (and the no-footage flag) into each PROJECTS entry.
+html = html.replace(/shot:\s*"([^"]+)"/g, (m, f) => {
+  const path = mediaFor.get(f) || "";
+  return `${m}, media: ${JSON.stringify(path)}, nofoot: ${path ? "false" : "true"}`;
+});
+
+const PANEL = '<div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:{{ active.anim }} 460ms cubic-bezier(.2,.8,.3,1)">';
+
+html = edit("project-media", html, PANEL, PANEL + "\n" +
+  '            <sc-if value="{{ active.media }}">\n' +
+  '              <img class="shot-media" src="{{ active.media }}" alt="{{ active.title }} — gameplay" loading="lazy" decoding="async" width="800" height="500">\n' +
+  '              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>\n' +
+  '            </sc-if>\n' +
+  '            <sc-if value="{{ active.nofoot }}">\n' +
+  '              <div class="no-footage">\n' +
+  '                <span class="no-footage-mark">✕</span>\n' +
+  '                <span>No footage — NDA restricted</span>\n' +
+  '              </div>\n' +
+  '            </sc-if>');
+
+mediaNote = [`${withMedia} with media, ${withoutMedia} without:`, ...notes].join("\n");
+if (oversized.length) {
+  mediaNote += "\n" + [
+    "",
+    `  WARNING: ${oversized.length} file(s) over 2 MB. This is the arcade panel's`,
+    "  LCP media, so page weight and Lighthouse take the hit directly:",
+    ...oversized.map((o) => `     ${o}`),
+    "  Re-encode to webm/mp4 (~800x500, 12-15fps, 6-10s) — usually 5-10x smaller.",
   ].join("\n");
 }
 

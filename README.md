@@ -49,23 +49,36 @@ npm run serve   # http://localhost:8000
 
 ## Project media
 
-The arcade panel shows each project's `shot:` filename over a striped
-placeholder. `build.mjs` wires real `<img>` tags **only when every file exists**
-in `images/`, then reports what is missing:
+Two folders feed the arcade panel, and **`gifs/` overrides `images/`**:
 
 ```
-Task 2: project media NOT wired — 0/7 files present in images/.
-     missing: maleficus-arena.png, tikto-king-board.png, ...
+gifs/    animated captures   <- wins
+images/  static stills       <- fallback
 ```
 
-Drop the files in and rebuild. They must be named exactly as the `shot:` values.
+`build.mjs` resolves each project's `shot:` name against both, then prints the
+full mapping and the file size on every run:
+
+```
+Task 2: 6 with media, 1 without:
+     maleficus-arena.png      <- gifs/maleficus.gif  (name differs)  24.2 MB  << TOO BIG
+     tikto-king-board.png     <- images/tikto.king-board.jpg  250 KB
+     super-one-shop.png       no file — shows the NDA note
+```
+
+Matching is by name, ignoring extension, case, dots, dashes and underscores —
+so `saniboy.png` resolves for `saniboy-gameplay.png`. An ambiguous match is
+refused and reported rather than guessed. A project with no file in either
+folder renders **"No footage — NDA restricted"** instead of a broken image.
+
+Files over 2 MB are flagged loudly. This media is the arcade panel's Largest
+Contentful Paint, so its weight goes straight to the Lighthouse score. Prefer
+`.webm`/`.mp4` over `.gif` — usually 5-10x smaller at the same quality — and
+target under 1 MB, ~800x500, 12-15 fps, 6-10 second loop.
 
 Note there is no client-side fallback for a missing file: the runtime turns the
 HTML into React elements, so an inline `onerror=""` is handed to React as a
-string prop and throws. Hence the build-time gate.
-
-Guidance for the media: prefer MP4/WebM over GIF (5–10x smaller at equal
-quality), target under 1 MB each, ~800x500, 12–15 fps.
+string prop and throws. Hence the build-time resolution.
 
 ## What build.mjs fixes
 
@@ -85,6 +98,7 @@ bundle/     pristine Claude Design export (build input)
 build.mjs   the build
 index.html  generated
 assets/     dc-runtime.js (generated), portrait.png, games/
-images/     project media (see above)
+gifs/       animated captures (override images/)
+images/     static stills
 legacy/     archived previous versions of the site
 ```
