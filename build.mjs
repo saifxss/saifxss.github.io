@@ -134,8 +134,20 @@ html = edit("head-meta", html,
 // a class here and the real CSS lives in one stylesheet.
 const CSS = `
 <style>
-  /* ── Task 1: kill horizontal scroll ── */
-  html, body { max-width: 100%; overflow-x: hidden; }
+  /* ── Undo the runtime's preview-frame sizing ──
+     dc-runtime injects  html,body{height:100%}  and  #dc-root{height:100%}
+     so the app fills Claude Design's preview iframe. On a standalone page that
+     pins the document to the viewport height, so the DOCUMENT never scrolls and
+     the BODY scrolls internally instead — which breaks position:sticky, anchor
+     links, scroll restoration and every scroll-driven measurement. */
+  html, body { height: auto !important; min-height: 100% !important; }
+  #dc-root, #dc-root > .sc-host { height: auto !important; min-height: 100% !important; }
+
+  /* ── Task 1: kill horizontal scroll ──
+     overflow-x lives on body only. Putting it on html promotes html to a scroll
+     container, which forces overflow-y to auto and re-breaks document scrolling. */
+  html { max-width: 100%; }
+  body { max-width: 100%; overflow-x: hidden; }
   *, *::before, *::after { box-sizing: border-box; }
   img, video, svg { max-width: 100%; height: auto; }
 
@@ -180,6 +192,10 @@ const CSS = `
   /* ── ≤1024px — tablet ── */
   @media (max-width: 1024px) {
     .stat-band { grid-template-columns: repeat(2, 1fr) !important; }
+    /* In 2-up, every second cell's divider lands on the container edge. */
+    .stat-band > div:nth-child(2n) { border-right: 0 !important; }
+    .stat-band > div { padding-left: 24px !important; padding-right: 24px !important; }
+    .stat-band > div:nth-child(2n + 1) { padding-left: 0 !important; }
     .stack-grid { grid-template-columns: repeat(2, 1fr) !important; }
     .arcade { transform: none !important; }
     .arcade-screen { grid-template-columns: 1fr !important; }
@@ -190,12 +206,33 @@ const CSS = `
   /* ── ≤768px — mobile ── */
   @media (max-width: 768px) {
     section, .pad-x { padding-left: 20px !important; padding-right: 20px !important; }
+
+    /* Nav: wordmark + 3 section links + CTA cannot fit 375px. The links were
+       being flex-shrunk to 44px, wrapping "Saif Chamakhi" onto two lines and
+       pushing "Hire me" past the padding. Drop the section links (the content
+       is a scroll away) and stop the wordmark shrinking. */
+    .nav-links a:not(:last-child) { display: none !important; }
+    .site-nav > a { flex: 0 0 auto; white-space: nowrap; }
+    .nav-links { flex: 0 0 auto; gap: 0 !important; }
+
+    /* Section headers put the heading and its intro side by side; below ~700px
+       the intro collapses to a sliver, so stack them. */
+    .section-head { flex-direction: column !important; align-items: stretch !important; gap: 18px !important; }
+    .section-head > div { max-width: none !important; }
     .hero, .stat-band, .work-grid, .roles, .stack-grid, .contact,
     .arcade-screen, .arcade-controls {
       grid-template-columns: 1fr !important;
     }
-    .stat-band { gap: 24px !important; text-align: left !important; padding: 28px 20px !important; }
-    .stat-band > * { border-left: 0 !important; padding-left: 0 !important; }
+    /* Stat cells divide with border-right + 44px side padding. Stacked, that
+       leaves a stray rule down the right edge and a lot of dead height, so the
+       dividers become horizontal rules between rows. */
+    .stat-band { gap: 0 !important; text-align: left !important; }
+    .stat-band > div {
+      border-right: 0 !important;
+      border-bottom: 1px solid rgba(240, 237, 230, 0.12);
+      padding: 24px 0 !important;
+    }
+    .stat-band > div:last-child { border-bottom: 0; }
     .arcade-controls { gap: 16px !important; justify-items: start !important; }
     .arcade-screen { min-height: 0 !important; }
     .arcade-screen > * { min-height: 260px; }
@@ -258,6 +295,9 @@ html = edit("cls-nav-bar", html,
 html = edit("cls-nav", html,
   '<div style="display:flex;align-items:center;gap:26px;font-size:11px;font-weight:500;letter-spacing:0.16em;text-transform:uppercase;color:rgba(240,237,230,0.62)">',
   '<div class="nav-links" style="display:flex;align-items:center;gap:26px;font-size:11px;font-weight:500;letter-spacing:0.16em;text-transform:uppercase;color:rgba(240,237,230,0.62)">');
+html = edit("cls-section-head", html,
+  '<div data-reveal="1" style="display:flex;align-items:flex-end;justify-content:space-between;gap:32px;margin-bottom:46px">',
+  '<div data-reveal="1" class="section-head" style="display:flex;align-items:flex-end;justify-content:space-between;gap:32px;margin-bottom:46px">');
 html = edit("cls-footer", html,
   '<div style="max-width:1320px;margin:0 auto;padding:0 44px;display:flex;justify-content:space-between;gap:24px;font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:rgba(240,237,230,0.55)">',
   '<div class="site-footer pad-x" style="max-width:1320px;margin:0 auto;padding:0 44px;display:flex;justify-content:space-between;gap:24px;font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:rgba(240,237,230,0.55)">');
@@ -294,6 +334,39 @@ html = edit("contact-elsewhere", html,
 html = edit("contact-cta-row", html,
   '<div style="display:flex;flex-wrap:wrap;gap:14px">\n          <a href="mailto:',
   '<div class="cta-row" style="display:flex;flex-wrap:wrap;gap:14px">\n          <a href="mailto:');
+
+// ══ CONTENT — swap Super One for Shells And Tails ═════════════════════════
+// Super One is NDA-restricted with no showable footage, so it occupied a slot
+// in a 7-project showcase that could never render anything. Shells And Tails
+// has footage. Super One stays credited in the BNJMO role bullet — the work
+// still counts, it just can't be shown.
+//
+// This is CONTENT, not a fix, and the durable home for it is the Claude Design
+// document. Make the same change there when convenient; until then this
+// transform re-applies it on every build, and will fail loudly if a future
+// export has already dropped or renamed the entry.
+html = edit("content-shells-and-tails", html,
+  `    title: "Super One", year: "2025", platform: "Mobile", shot: "super-one-shop.png",
+    kind: "Shop, profile, quest, and settings systems on a data-driven ScriptableObject architecture.",
+    stack: "Unity · ScriptableObjects", tech: ["Unity", "ScriptableObjects", "UI"],
+    bullets: [
+      "Built shop, profile, quest, and settings systems on a data-driven ScriptableObject architecture, letting designers add content without engineering involvement.",
+      "Designed modular, reusable UI components to keep the interface scalable as new features were added."
+    ]`,
+  `    title: "Shells And Tails", year: "2022", platform: "PC", shot: "shells-and-tails.png",
+    kind: "Four-player split-screen showdown — four wildly different rule sets, one shared chaos.",
+    stack: "Unity · C# · Local multiplayer", tech: ["Unity", "C#", "Local multiplayer"],
+    bullets: [
+      "Built the gameplay for each rule-set mini-game, each with its own win condition and feel.",
+      "Wired the split-screen camera rig and four-player local input handling."
+    ]`);
+
+// Shells And Tails is now a showcased project, so drop it from the "earlier
+// titles" line below the cabinet — it was listed there while Super One held the
+// slot, and listing it in both places reads as padding.
+html = edit("content-earlier-titles", html,
+  `<span style="color:#F0EDE6">Slash And Dash</span> (BPM-driven obstacle generation, background VFX), <span style="color:#F0EDE6">Shells And Tails</span> (split-screen four-player local multiplayer), <span style="color:#F0EDE6">DaQueen</span> (ragdoll controller, Photon multiplayer)`,
+  `<span style="color:#F0EDE6">Slash And Dash</span> (BPM-driven obstacle generation, background VFX), <span style="color:#F0EDE6">DaQueen</span> (ragdoll controller, Photon multiplayer)`);
 
 // ══ TASK 2 — real media in the project slot ═══════════════════════════════
 // The export renders {{ active.shot }} as a filename caption over a striped
@@ -406,7 +479,7 @@ const NOSCRIPT = `
     <ul>
       <li><strong>Maleficus</strong> (2025, PC) — multiplayer arena spell game; event-driven refactor, strict UI/gameplay separation.</li>
       <li><strong>Tikto King</strong> (2025, Mobile) — multi-game platform; Minimax + alpha-beta AI.</li>
-      <li><strong>Super One</strong> (2025, Mobile) — shop, profile, quest and settings systems on ScriptableObjects.</li>
+      <li><strong>Shells And Tails</strong> (2022, PC) — four-player split-screen showdown; per-mini-game rule sets, split-screen camera and local input.</li>
       <li><strong>Draft Fever Bowl</strong> (2024, Steam) — owned the UI layer, responsive popup framework reused team-wide.</li>
       <li><strong>The Plooshies</strong> (2024, WebGL) — Photon Fusion multiplayer, WebGL performance.</li>
       <li><strong>Albert's Ark Idle</strong> (2024, Steam) — progression systems and early UI through to release.</li>
