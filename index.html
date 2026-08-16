@@ -46,7 +46,7 @@
     <ul>
       <li><strong>Maleficus</strong> (2025, PC) — multiplayer arena spell game; event-driven refactor, strict UI/gameplay separation.</li>
       <li><strong>Tikto King</strong> (2025, Mobile) — multi-game platform; Minimax + alpha-beta AI.</li>
-      <li><strong>Super One</strong> (2025, Mobile) — shop, profile, quest and settings systems on ScriptableObjects.</li>
+      <li><strong>Shells And Tails</strong> (2022, PC) — four-player split-screen showdown; per-mini-game rule sets, split-screen camera and local input.</li>
       <li><strong>Draft Fever Bowl</strong> (2024, Steam) — owned the UI layer, responsive popup framework reused team-wide.</li>
       <li><strong>The Plooshies</strong> (2024, WebGL) — Photon Fusion multiplayer, WebGL performance.</li>
       <li><strong>Albert's Ark Idle</strong> (2024, Steam) — progression systems and early UI through to release.</li>
@@ -113,8 +113,20 @@
 </style>
 
 <style>
-  /* ── Task 1: kill horizontal scroll ── */
-  html, body { max-width: 100%; overflow-x: hidden; }
+  /* ── Undo the runtime's preview-frame sizing ──
+     dc-runtime injects  html,body{height:100%}  and  #dc-root{height:100%}
+     so the app fills Claude Design's preview iframe. On a standalone page that
+     pins the document to the viewport height, so the DOCUMENT never scrolls and
+     the BODY scrolls internally instead — which breaks position:sticky, anchor
+     links, scroll restoration and every scroll-driven measurement. */
+  html, body { height: auto !important; min-height: 100% !important; }
+  #dc-root, #dc-root > .sc-host { height: auto !important; min-height: 100% !important; }
+
+  /* ── Task 1: kill horizontal scroll ──
+     overflow-x lives on body only. Putting it on html promotes html to a scroll
+     container, which forces overflow-y to auto and re-breaks document scrolling. */
+  html { max-width: 100%; }
+  body { max-width: 100%; overflow-x: hidden; }
   *, *::before, *::after { box-sizing: border-box; }
   img, video, svg { max-width: 100%; height: auto; }
 
@@ -159,6 +171,10 @@
   /* ── ≤1024px — tablet ── */
   @media (max-width: 1024px) {
     .stat-band { grid-template-columns: repeat(2, 1fr) !important; }
+    /* In 2-up, every second cell's divider lands on the container edge. */
+    .stat-band > div:nth-child(2n) { border-right: 0 !important; }
+    .stat-band > div { padding-left: 24px !important; padding-right: 24px !important; }
+    .stat-band > div:nth-child(2n + 1) { padding-left: 0 !important; }
     .stack-grid { grid-template-columns: repeat(2, 1fr) !important; }
     .arcade { transform: none !important; }
     .arcade-screen { grid-template-columns: 1fr !important; }
@@ -169,12 +185,33 @@
   /* ── ≤768px — mobile ── */
   @media (max-width: 768px) {
     section, .pad-x { padding-left: 20px !important; padding-right: 20px !important; }
+
+    /* Nav: wordmark + 3 section links + CTA cannot fit 375px. The links were
+       being flex-shrunk to 44px, wrapping "Saif Chamakhi" onto two lines and
+       pushing "Hire me" past the padding. Drop the section links (the content
+       is a scroll away) and stop the wordmark shrinking. */
+    .nav-links a:not(:last-child) { display: none !important; }
+    .site-nav > a { flex: 0 0 auto; white-space: nowrap; }
+    .nav-links { flex: 0 0 auto; gap: 0 !important; }
+
+    /* Section headers put the heading and its intro side by side; below ~700px
+       the intro collapses to a sliver, so stack them. */
+    .section-head { flex-direction: column !important; align-items: stretch !important; gap: 18px !important; }
+    .section-head > div { max-width: none !important; }
     .hero, .stat-band, .work-grid, .roles, .stack-grid, .contact,
     .arcade-screen, .arcade-controls {
       grid-template-columns: 1fr !important;
     }
-    .stat-band { gap: 24px !important; text-align: left !important; padding: 28px 20px !important; }
-    .stat-band > * { border-left: 0 !important; padding-left: 0 !important; }
+    /* Stat cells divide with border-right + 44px side padding. Stacked, that
+       leaves a stray rule down the right edge and a lot of dead height, so the
+       dividers become horizontal rules between rows. */
+    .stat-band { gap: 0 !important; text-align: left !important; }
+    .stat-band > div {
+      border-right: 0 !important;
+      border-bottom: 1px solid rgba(240, 237, 230, 0.12);
+      padding: 24px 0 !important;
+    }
+    .stat-band > div:last-child { border-bottom: 0; }
     .arcade-controls { gap: 16px !important; justify-items: start !important; }
     .arcade-screen { min-height: 0 !important; }
     .arcade-screen > * { min-height: 260px; }
@@ -277,7 +314,7 @@
   </section>
 
   <section id="work" style="max-width:1320px;margin:0 auto;padding:104px 44px 0">
-    <div data-reveal="1" style="display:flex;align-items:flex-end;justify-content:space-between;gap:32px;margin-bottom:46px">
+    <div data-reveal="1" class="section-head" style="display:flex;align-items:flex-end;justify-content:space-between;gap:32px;margin-bottom:46px">
       <div>
         <div style="font-size:11px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:oklch(0.75 0.14 320);margin-bottom:18px">01 — Selected work</div>
         <h2 style="font-weight:800;font-size:clamp(34px,4.4vw,60px);line-height:1;letter-spacing:-0.03em;word-spacing:0.12em;text-transform:uppercase;margin:0">Shipped, not<br>prototyped</h2>
@@ -368,7 +405,7 @@
     </div>
 
 
-    <div data-reveal="1" style="margin-top:26px;border:1px solid rgba(240,237,230,0.14);padding:26px 28px;font-size:14px;line-height:1.7;color:rgba(240,237,230,0.68);text-wrap:pretty">Earlier titles — <span style="color:#F0EDE6">Slash And Dash</span> (BPM-driven obstacle generation, background VFX), <span style="color:#F0EDE6">Shells And Tails</span> (split-screen four-player local multiplayer), <span style="color:#F0EDE6">DaQueen</span> (ragdoll controller, Photon multiplayer) — plus a back catalogue of 20+ legacy titles restored and republished to current store requirements.</div>
+    <div data-reveal="1" style="margin-top:26px;border:1px solid rgba(240,237,230,0.14);padding:26px 28px;font-size:14px;line-height:1.7;color:rgba(240,237,230,0.68);text-wrap:pretty">Earlier titles — <span style="color:#F0EDE6">Slash And Dash</span> (BPM-driven obstacle generation, background VFX), <span style="color:#F0EDE6">DaQueen</span> (ragdoll controller, Photon multiplayer) — plus a back catalogue of 20+ legacy titles restored and republished to current store requirements.</div>
   </section>
 
   <section id="experience" style="max-width:1320px;margin:0 auto;padding:104px 44px 0">
@@ -524,12 +561,12 @@ const PROJECTS = [
     ]
   },
   {
-    title: "Super One", year: "2025", platform: "Mobile", shot: "super-one-shop.png", media: "", nofoot: true,
-    kind: "Shop, profile, quest, and settings systems on a data-driven ScriptableObject architecture.",
-    stack: "Unity · ScriptableObjects", tech: ["Unity", "ScriptableObjects", "UI"],
+    title: "Shells And Tails", year: "2022", platform: "PC", shot: "shells-and-tails.png", media: "images/shells_and_tails.png", nofoot: false,
+    kind: "Four-player split-screen showdown — four wildly different rule sets, one shared chaos.",
+    stack: "Unity · C# · Local multiplayer", tech: ["Unity", "C#", "Local multiplayer"],
     bullets: [
-      "Built shop, profile, quest, and settings systems on a data-driven ScriptableObject architecture, letting designers add content without engineering involvement.",
-      "Designed modular, reusable UI components to keep the interface scalable as new features were added."
+      "Built the gameplay for each rule-set mini-game, each with its own win condition and feel.",
+      "Wired the split-screen camera rig and four-player local input handling."
     ]
   },
   {
