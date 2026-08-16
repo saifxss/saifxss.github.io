@@ -13,7 +13,7 @@ matches on the name, and `.gif`, `.webp`, `.mp4` and `.webm` all work):
 | The Amazing SaniBoy | `saniboy-gameplay` |
 | Draft Fever Bowl | `draft-fever-bowl-ui` |
 | The Plooshies | `plooshies-party` |
-| Super One | `super-one-shop` |
+| Shells And Tails | `shells-and-tails` |
 | Albert's Ark Idle | `alberts-ark-idle` |
 
 A project with no file in either folder shows "No footage — NDA restricted"
