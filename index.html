@@ -138,6 +138,23 @@
     position: absolute; inset: 0; width: 100%; height: 100%;
     object-fit: cover; display: block;
   }
+  /* Shown instead of a still when a project has nothing shippable. */
+  .no-footage {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(240, 237, 230, 0.62);
+    text-align: center; padding: 24px; pointer-events: none;
+  }
+  .no-footage-mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 1px solid rgba(240, 237, 230, 0.28);
+    font-size: 13px; letter-spacing: 0;
+    color: rgba(240, 237, 230, 0.5);
+  }
 
   /* ── ≤1024px — tablet ── */
   @media (max-width: 1024px) {
@@ -280,6 +297,16 @@
         <div class="arcade-screen" style="position:relative;border-radius:12px;overflow:hidden;background:#0C0B10;display:grid;grid-template-columns:1.25fr 1fr;gap:0;min-height:430px">
 
           <div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:{{ active.anim }} 460ms cubic-bezier(.2,.8,.3,1)">
+            <sc-if value="{{ active.media }}">
+              <img class="shot-media" src="{{ active.media }}" alt="{{ active.title }} — gameplay" loading="lazy" decoding="async" width="800" height="500">
+              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
+            </sc-if>
+            <sc-if value="{{ active.nofoot }}">
+              <div class="no-footage">
+                <span class="no-footage-mark">✕</span>
+                <span>No footage — NDA restricted</span>
+              </div>
+            </sc-if>
             <div style="position:absolute;top:20px;left:26px;display:flex;align-items:center;gap:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:oklch(0.8 0.13 320)">
               <span style="width:7px;height:7px;background:oklch(0.72 0.16 320);animation:blink 1.1s steps(1) infinite"></span>Now playing — {{ active.num }} / 07
             </div>
@@ -448,7 +475,7 @@
 <script type="text/x-dc" data-dc-script="" data-props="{&quot;revealOnScroll&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Behaviour&quot;}}">
 const PROJECTS = [
   {
-    title: "Maleficus", year: "2025", platform: "PC", shot: "maleficus-arena.png", featured: true,
+    title: "Maleficus", year: "2025", platform: "PC", shot: "maleficus-arena.png", media: "gifs/maleficus.gif", nofoot: false, featured: true,
     kind: "Multiplayer arena spell game. Refactored a coupled codebase into an event-driven architecture with strict UI/gameplay separation.",
     stack: "Unity · C# · Photon", tech: ["Unity", "C#", "Photon", "Event-driven"],
     bullets: [
@@ -458,7 +485,7 @@ const PROJECTS = [
     ]
   },
   {
-    title: "Tikto King", year: "2025", platform: "Mobile", shot: "tikto-king-board.png",
+    title: "Tikto King", year: "2025", platform: "Mobile", shot: "tikto-king-board.png", media: "images/tikto.king-board.jpg", nofoot: false,
     kind: "Multi-game platform with a Minimax + Alpha-Beta pruning AI for Ultimate Tic-Tac-Toe.",
     stack: "Unity · C# · Game AI", tech: ["Unity", "C#", "Minimax AI"],
     bullets: [
@@ -468,7 +495,7 @@ const PROJECTS = [
     ]
   },
   {
-    title: "The Amazing SaniBoy", year: "2023", platform: "Google Play", shot: "saniboy-gameplay.png",
+    title: "The Amazing SaniBoy", year: "2023", platform: "Google Play", shot: "saniboy-gameplay.png", media: "images/saniboy.png", nofoot: false,
     kind: "Mobile action game past 100,000 downloads at 4.7 stars. Owned UI, gameplay, and backend integration.",
     stack: "Unity · C# · Android", tech: ["Unity", "Android", "Ads", "Leaderboards"],
     bullets: [
@@ -479,7 +506,7 @@ const PROJECTS = [
     ]
   },
   {
-    title: "Draft Fever Bowl", year: "2024", platform: "Steam", shot: "draft-fever-bowl-ui.png",
+    title: "Draft Fever Bowl", year: "2024", platform: "Steam", shot: "draft-fever-bowl-ui.png", media: "images/draft_fever_bowl.jpg", nofoot: false,
     kind: "Football management sim. Delivered the full UI layer inside a 20+ person production.",
     stack: "Unity · C# · Steam", tech: ["Unity", "C#", "UI systems"],
     bullets: [
@@ -488,7 +515,7 @@ const PROJECTS = [
     ]
   },
   {
-    title: "The Plooshies", year: "2024", platform: "WebGL", shot: "plooshies-party.png",
+    title: "The Plooshies", year: "2024", platform: "WebGL", shot: "plooshies-party.png", media: "images/plooshies.jpg", nofoot: false,
     kind: "WebGL multiplayer party game. Photon Fusion netcode and in-browser performance work.",
     stack: "Unity · Photon Fusion", tech: ["Unity", "Photon Fusion", "WebGL"],
     bullets: [
@@ -497,7 +524,7 @@ const PROJECTS = [
     ]
   },
   {
-    title: "Super One", year: "2025", platform: "Mobile", shot: "super-one-shop.png",
+    title: "Super One", year: "2025", platform: "Mobile", shot: "super-one-shop.png", media: "", nofoot: true,
     kind: "Shop, profile, quest, and settings systems on a data-driven ScriptableObject architecture.",
     stack: "Unity · ScriptableObjects", tech: ["Unity", "ScriptableObjects", "UI"],
     bullets: [
@@ -506,7 +533,7 @@ const PROJECTS = [
     ]
   },
   {
-    title: "Albert's Ark Idle", year: "2024", platform: "Steam", shot: "alberts-ark-idle.png",
+    title: "Albert's Ark Idle", year: "2024", platform: "Steam", shot: "alberts-ark-idle.png", media: "images/alberts_ark.jpg", nofoot: false,
     kind: "2D idle clicker. Core progression systems — experience, levelling, currency — through to release.",
     stack: "Unity · C# · Steam", tech: ["Unity", "C#", "Progression"],
     bullets: [
