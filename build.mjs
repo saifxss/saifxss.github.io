@@ -18,10 +18,12 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from "node:fs";
 import { extname } from "node:path";
 import { gunzipSync } from "node:zlib";
+import { createHash } from "node:crypto";
 
 const BUNDLE = "bundle/index.bundle.html";
 const OUT_HTML = "index.html";
 const OUT_RUNTIME = "assets/dc-runtime.js";
+const VENDOR = "assets/vendor";
 
 const SITE = "https://saifxss.github.io";
 const EMAIL = "chamakhiseif@gmail.com";
@@ -74,8 +76,59 @@ const entry = manifest[runtimeUuid];
 let runtime = Buffer.from(entry.data, "base64");
 if (entry.compressed) runtime = gunzipSync(runtime);
 
+// ══ RESILIENCE — self-host React instead of fetching it from unpkg ════════
+// The runtime renders NOTHING until React and ReactDOM arrive, and it pulls
+// both from unpkg at page load. One CDN outage, one blocked third-party
+// request (corporate proxy, tracking blocker, offline visitor) and the page
+// paints empty. Both UMD builds now ship from assets/vendor/ instead.
+//
+// The SRI hash goes with them, and that is deliberate. The runtime sets
+// crossOrigin="anonymous" on any script carrying an integrity attribute
+// (loadScript, dc-runtime.js), which turns a plain same-origin <script> into a
+// CORS request. Over file:// — opening index.html directly, or an IDE preview
+// — the origin is "null", the check can never pass, and React silently never
+// loads. SRI exists to catch a THIRD PARTY serving something else; these files
+// ship from this repo, so there is no third party left to distrust.
+//
+// The guarantee moves to build time instead: the hash the runtime pinned is
+// verified against the bytes on disk here, every build, and the build fails if
+// they ever drift. Same protection, checked earlier, no CORS.
+//
+// @babel/standalone is deliberately left on unpkg: it is only fetched for
+// <x-import> of JSX modules, which this page does not use, so vendoring 3 MB
+// for a code path that never runs would be dead weight.
+let runtimeSrc = runtime.toString("utf8");
 mkdirSync("assets", { recursive: true });
-writeFileSync(OUT_RUNTIME, runtime);
+
+for (const [pkg, sriVar, remote] of [
+  ["react", "REACT_SRI", "https://unpkg.com/react@18.3.1/umd/react.production.min.js"],
+  ["react-dom", "REACT_DOM_SRI", "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"],
+]) {
+  const local = `${VENDOR}/${remote.split("/").pop()}`;
+  if (!existsSync(local)) {
+    throw new Error(
+      `transform "vendor-${pkg}": ${local} is missing.\n` +
+      `Download it from ${remote} — the build verifies its hash against the runtime's pin.`
+    );
+  }
+
+  const pinned = new RegExp(`var ${sriVar} = "(sha384-[^"]+)";`).exec(runtimeSrc)?.[1];
+  if (!pinned) throw new Error(`transform "vendor-${pkg}": could not read ${sriVar} from the runtime.`);
+  const actual = "sha384-" + createHash("sha384").update(readFileSync(local)).digest("base64");
+  if (actual !== pinned) {
+    throw new Error(
+      `transform "vendor-${pkg}": ${local} does not match the version the runtime pins.\n` +
+      `  runtime ${sriVar}: ${pinned}\n  ${local}: ${actual}\n` +
+      `Re-download it from ${remote}.`
+    );
+  }
+
+  runtimeSrc = edit(`vendor-${pkg}`, runtimeSrc, `"${remote}"`, `"${local}"`);
+  // Drop the integrity pin so the tag loads as a same-origin script, not CORS.
+  runtimeSrc = edit(`vendor-${pkg}-sri`, runtimeSrc, `var ${sriVar} = "${pinned}";`, `var ${sriVar} = "";`);
+}
+
+writeFileSync(OUT_RUNTIME, runtimeSrc);
 
 // ══ TASK 5 — <html lang> ═══════════════════════════════════════════════════
 html = edit("lang", html, "<html><head>", '<html lang="en"><head>');
@@ -110,6 +163,14 @@ const HEAD = `
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#0E0D11">
 <link rel="icon" href="favicon.ico">
+<!-- The <x-dc> block below is a CLIENT-SIDE TEMPLATE: dc-runtime parses it and
+     replaces it with the rendered page. Until that happens its raw {{ }}
+     expressions are literal text. dc-runtime hides it itself on first line of
+     execution, but that is no use if the runtime is the thing that failed to
+     load, so the same rule is stated here inline, where nothing can stop it.
+     The load-guard in the body reveals the static resume if the render never
+     lands, so hiding this can never leave a blank page. -->
+<style>x-dc{display:none!important}</style>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -230,7 +291,6 @@ const CSS = `
     .stat-band > div { padding-left: 24px !important; padding-right: 24px !important; }
     .stat-band > div:nth-child(2n + 1) { padding-left: 0 !important; }
     .stack-grid { grid-template-columns: repeat(2, 1fr) !important; }
-    .arcade { transform: none !important; }
     .arcade-screen { grid-template-columns: 1fr !important; }
     .contact { grid-template-columns: 1fr !important; gap: 44px !important; }
     .roles { grid-template-columns: 1fr !important; gap: 18px !important; }
@@ -252,7 +312,7 @@ const CSS = `
        the intro collapses to a sliver, so stack them. */
     .section-head { flex-direction: column !important; align-items: stretch !important; gap: 18px !important; }
     .section-head > div { max-width: none !important; }
-    .hero, .stat-band, .work-grid, .roles, .stack-grid, .contact,
+    .stat-band, .roles, .stack-grid, .contact,
     .arcade-screen, .arcade-controls {
       grid-template-columns: 1fr !important;
     }
@@ -288,6 +348,9 @@ const CSS = `
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+    /* Collapsing the duration doesn't stop a keyframe animation, it snaps it to
+       its LAST frame — which for the marquee is fully scrolled off. The track
+       has to be pinned back to its start or the ticker reads as empty. */
     .ticker-track { transform: none !important; }
   }
 </style>
@@ -320,6 +383,12 @@ cls("cls-contact",
 cls("cls-hero-cta",
   '<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center">',
   "cta-row");
+// The reduced-motion rule above targets .ticker-track, which nothing carried:
+// the marquee track is styled inline. Without the class the rule was dead and
+// reduced-motion users got an empty ticker strip.
+cls("cls-ticker-track",
+  '<div style="display:flex;width:max-content;animation:ticker 34s linear infinite">',
+  "ticker-track");
 
 // nav + footer rows
 html = edit("cls-nav-bar", html,
@@ -467,6 +536,29 @@ html = edit("content-earlier-titles", html,
   `<span style="color:#F0EDE6">Slash And Dash</span> (BPM-driven obstacle generation, background VFX), <span style="color:#F0EDE6">Shells And Tails</span> (split-screen four-player local multiplayer), <span style="color:#F0EDE6">DaQueen</span> (ragdoll controller, Photon multiplayer)`,
   `<span style="color:#F0EDE6">Slash And Dash</span> (BPM-driven obstacle generation, background VFX), <span style="color:#F0EDE6">DaQueen</span> (ragdoll controller, Photon multiplayer)`);
 
+// ══ CONTENT — tell people the cabinet is interactive ══════════════════════
+// The instruction already existed, but as the tail of the section intro in the
+// header's top-right, roughly a full screen above the buttons it describes. By
+// the time the cabinet is on screen it has scrolled away. It moves down to sit
+// directly under the button row, in the same caption register as the "1P" and
+// "Insert coin" labels flanking it, and the intro keeps just its own claim.
+const BTN_ROW = '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center">';
+const NEXT_CELL = '<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">';
+const CAPTION = "font-size:9.5px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:rgba(240,237,230,0.45)";
+
+// The button row is one cell of a 3-column grid, so the caption cannot simply
+// be a sibling — that would make it a fourth column. Row and caption get
+// wrapped in a column flex box that takes the cell instead.
+html = edit("cabinet-hint-open", html, BTN_ROW,
+  '<div style="display:flex;flex-direction:column;align-items:center;gap:14px">\n          ' + BTN_ROW);
+html = edit("cabinet-hint-close", html, NEXT_CELL,
+  `<div style="${CAPTION};text-align:center">Press a button to load its case notes</div>\n` +
+  `        </div>\n\n        ` + NEXT_CELL);
+
+html = edit("cabinet-hint-dedupe", html,
+  "Seven of nine titles, with the systems I owned on each. Pick a title on the cabinet to load its case notes.",
+  "Seven of nine titles, with the systems I owned on each.");
+
 // ── "Now playing" readout: red with a black outline ──
 // It sits directly on top of the gameplay media, so it needs to survive
 // whatever is behind it — hence the outline rather than a plain colour swap.
@@ -572,9 +664,20 @@ if (oversized.length) {
   ].join("\n");
 }
 
-// ══ TASK 4 — noscript fallback ════════════════════════════════════════════
-const NOSCRIPT = `
-<noscript>
+// ══ TASK 4 — static fallback résumé ═══════════════════════════════════════
+// This used to be a plain <noscript> block, which only covers one of the two
+// ways a visitor ends up with no page: JavaScript switched off. The other way
+// is JavaScript switched ON but the render never landing (dc-runtime blocked,
+// React unreachable, a throw mid-boot). <noscript> does nothing there.
+//
+// So the résumé is now always in the DOM, hidden, and revealed by whichever
+// signal fires:
+//   JS off            -> the <noscript> stylesheet below unhides it
+//   JS on, no render  -> the load-guard script unhides it and drops <x-dc>
+//   JS on, rendered   -> nothing fires, it stays hidden
+// The visitor always gets real content, and never raw {{ }} markup.
+const FALLBACK = `
+<div id="static-resume" hidden>
   <div style="max-width:800px;margin:0 auto;padding:60px 24px;font-family:'Libre Franklin',Helvetica,Arial,sans-serif;line-height:1.6;color:#F0EDE6">
     <h1>Saif Chamakhi</h1>
     <p><strong>Unity Developer</strong> — gameplay systems, UI architecture, netcode</p>
@@ -627,9 +730,32 @@ const NOSCRIPT = `
     </p>
     <p>Phone: +216 52 099 160</p>
   </div>
-</noscript>
+</div>
+<noscript><style>#static-resume{display:block!important}</style></noscript>
+<script>
+(function () {
+  // Has dc-runtime replaced <x-dc> with a rendered #dc-root yet?
+  function rendered() {
+    var root = document.getElementById("dc-root");
+    return !!(root && root.firstElementChild);
+  }
+  function check() {
+    if (rendered()) return;
+    var dc = document.querySelector("x-dc");
+    if (dc) dc.remove();
+    var fallback = document.getElementById("static-resume");
+    if (fallback) fallback.hidden = false;
+  }
+  // Two triggers, because neither alone is reliable: "load" waits for the
+  // gameplay media (slow, and it never fires if a request hangs), while a bare
+  // timer can outrun React on a cold connection. Whichever lands first wins,
+  // and check() is a no-op once the page has rendered.
+  setTimeout(check, 8000);
+  addEventListener("load", function () { setTimeout(check, 2000); });
+})();
+</script>
 `;
-html = edit("noscript", html, "<body>", "<body>" + NOSCRIPT);
+html = edit("static-fallback", html, "<body>", "<body>" + FALLBACK);
 
 // ══ TYPOGRAPHY — no em dashes ═════════════════════════════════════════════
 // Runs LAST, on the finished document, so every transform above can keep
@@ -650,7 +776,7 @@ writeFileSync(OUT_HTML, html);
 
 const kb = (n) => (n / 1024).toFixed(1) + " KB";
 console.log(`${OUT_HTML}      ${kb(Buffer.byteLength(html))}   (bundle was ${kb(bundle.length)})`);
-console.log(`${OUT_RUNTIME}  ${kb(runtime.length)}`);
+console.log(`${OUT_RUNTIME}  ${kb(Buffer.byteLength(runtimeSrc))}`);
 console.log(`\n${applied.length} transforms applied:`);
 console.log("  " + applied.join(", "));
 console.log(`
