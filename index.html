@@ -17,6 +17,14 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#0E0D11">
 <link rel="icon" href="favicon.ico">
+<!-- The <x-dc> block below is a CLIENT-SIDE TEMPLATE: dc-runtime parses it and
+     replaces it with the rendered page. Until that happens its raw {{ }}
+     expressions are literal text. dc-runtime hides it itself on first line of
+     execution, but that is no use if the runtime is the thing that failed to
+     load, so the same rule is stated here inline, where nothing can stop it.
+     The load-guard in the body reveals the static resume if the render never
+     lands, so hiding this can never leave a blank page. -->
+<style>x-dc{display:none!important}</style>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -35,7 +43,7 @@
 <script src="assets/dc-runtime.js"></script>
 </head>
 <body>
-<noscript>
+<div id="static-resume" hidden>
   <div style="max-width:800px;margin:0 auto;padding:60px 24px;font-family:'Libre Franklin',Helvetica,Arial,sans-serif;line-height:1.6;color:#F0EDE6">
     <h1>Saif Chamakhi</h1>
     <p><strong>Unity Developer</strong> gameplay systems, UI architecture, netcode</p>
@@ -88,7 +96,30 @@
     </p>
     <p>Phone: +216 52 099 160</p>
   </div>
-</noscript>
+</div>
+<noscript><style>#static-resume{display:block!important}</style></noscript>
+<script>
+(function () {
+  // Has dc-runtime replaced <x-dc> with a rendered #dc-root yet?
+  function rendered() {
+    var root = document.getElementById("dc-root");
+    return !!(root && root.firstElementChild);
+  }
+  function check() {
+    if (rendered()) return;
+    var dc = document.querySelector("x-dc");
+    if (dc) dc.remove();
+    var fallback = document.getElementById("static-resume");
+    if (fallback) fallback.hidden = false;
+  }
+  // Two triggers, because neither alone is reliable: "load" waits for the
+  // gameplay media (slow, and it never fires if a request hangs), while a bare
+  // timer can outrun React on a cold connection. Whichever lands first wins,
+  // and check() is a no-op once the page has rendered.
+  setTimeout(check, 8000);
+  addEventListener("load", function () { setTimeout(check, 2000); });
+})();
+</script>
 
 <x-dc>
 <helmet>
@@ -209,7 +240,6 @@
     .stat-band > div { padding-left: 24px !important; padding-right: 24px !important; }
     .stat-band > div:nth-child(2n + 1) { padding-left: 0 !important; }
     .stack-grid { grid-template-columns: repeat(2, 1fr) !important; }
-    .arcade { transform: none !important; }
     .arcade-screen { grid-template-columns: 1fr !important; }
     .contact { grid-template-columns: 1fr !important; gap: 44px !important; }
     .roles { grid-template-columns: 1fr !important; gap: 18px !important; }
@@ -231,7 +261,7 @@
        the intro collapses to a sliver, so stack them. */
     .section-head { flex-direction: column !important; align-items: stretch !important; gap: 18px !important; }
     .section-head > div { max-width: none !important; }
-    .hero, .stat-band, .work-grid, .roles, .stack-grid, .contact,
+    .stat-band, .roles, .stack-grid, .contact,
     .arcade-screen, .arcade-controls {
       grid-template-columns: 1fr !important;
     }
@@ -267,6 +297,9 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+    /* Collapsing the duration doesn't stop a keyframe animation, it snaps it to
+       its LAST frame which for the marquee is fully scrolled off. The track
+       has to be pinned back to its start or the ticker reads as empty. */
     .ticker-track { transform: none !important; }
   }
 </style>
@@ -306,7 +339,7 @@
   </section>
 
   <div style="border-bottom:1px solid rgba(240,237,230,0.12);background:#121116;overflow:hidden;padding:16px 0">
-    <div style="display:flex;width:max-content;animation:ticker 34s linear infinite">
+    <div class="ticker-track" style="display:flex;width:max-content;animation:ticker 34s linear infinite">
       <div style="display:flex;gap:44px;padding-right:44px;font-size:12px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:rgba(240,237,230,0.55);white-space:nowrap">
         <sc-for list="{{ ticker }}" as="t" hint-placeholder-count="10">
           <span>{{ t }}</span>
@@ -347,7 +380,7 @@
         <div style="font-size:11px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:oklch(0.75 0.14 320);margin-bottom:18px">01 Selected work</div>
         <h2 style="font-weight:800;font-size:clamp(34px,4.4vw,60px);line-height:1;letter-spacing:-0.03em;word-spacing:0.12em;text-transform:uppercase;margin:0">Shipped, not<br>prototyped</h2>
       </div>
-      <div style="font-size:14.5px;line-height:1.6;color:rgba(240,237,230,0.68);max-width:34ch;text-wrap:pretty">Seven of nine titles, with the systems I owned on each. Pick a title on the cabinet to load its case notes.</div>
+      <div style="font-size:14.5px;line-height:1.6;color:rgba(240,237,230,0.68);max-width:34ch;text-wrap:pretty">Seven of nine titles, with the systems I owned on each.</div>
     </div>
 
     <div data-reveal="1" style="position:relative;border:1px solid rgba(240,237,230,0.16);border-radius:26px 26px 8px 8px;background:linear-gradient(180deg,#1B1822 0%,#141219 46%,#100F14 100%);padding:26px 26px 30px;box-shadow:0 40px 90px rgba(0,0,0,0.55),inset 0 1px 0 rgba(240,237,230,0.09);animation:hum 5.5s ease-in-out infinite">
@@ -415,13 +448,17 @@
           <div style="font-size:9.5px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:rgba(240,237,230,0.45)">1P</div>
         </div>
 
-        <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+          <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center">
           <sc-for list="{{ projects }}" as="p" hint-placeholder-count="7">
             <div sc-camel-on-click="{{ p.select }}" title="{{ p.title }}" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;width:118px">
               <div style="width:44px;height:44px;border-radius:50%;background:{{ p.btnBg }};border:1px solid {{ p.btnBorder }};box-shadow:{{ p.btnShadow }};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;font-variant-numeric:tabular-nums;color:{{ p.btnText }};transition:transform 130ms,box-shadow 130ms" style-hover="transform:translateY(-2px)" style-active="transform:translateY(2px)">{{ p.num }}</div>
               <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;text-align:center;line-height:1.35;color:{{ p.labelColor }}">{{ p.title }}</div>
             </div>
           </sc-for>
+        </div>
+
+        <div style="font-size:9.5px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:rgba(240,237,230,0.45);text-align:center">Press a button to load its case notes</div>
         </div>
 
         <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
