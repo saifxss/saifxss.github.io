@@ -1,9 +1,16 @@
 // data.jsx — All content for saifxss.github.io
 
+// The gameplay GIFs named below aren't in images/ yet. Flip this to true once
+// they land and the project cards start animating on desktop; until then the
+// cards use the static shots and don't fire 404s for the missing files.
+const GIFS_READY = false;
+
 const PROJECTS = [
   {
     title: "Maleficus",
-    image: "assets/games/Maleficus.png",
+    image: "assets/games/maleficus-arena.png",
+    gif: "images/maleficus-arena.gif",
+    poster: "assets/games/maleficus-arena.png",
     kind: "Multiplayer Arena Spell Game",
     year: "2025",
     role: "Gameplay Architecture · UI",
@@ -17,6 +24,8 @@ const PROJECTS = [
   {
     title: "Tikto King",
     image: "assets/games/Tikto_King_Promotion.jpg",
+    gif: "images/tikto-king-board.gif",
+    poster: "assets/games/Tikto_King_Promotion.jpg",
     kind: "Multi-Game Platform · Tikto + Quiz",
     year: "2025",
     role: "AI · Systems Architecture",
@@ -30,6 +39,8 @@ const PROJECTS = [
   {
     title: "The Plooshies",
     image: "assets/games/plooshies.jpg",
+    gif: "images/plooshies-party.gif",
+    poster: "assets/games/plooshies.jpg",
     kind: "WebGL Multiplayer Party Game",
     year: "2024",
     role: "UI · Multiplayer Integration",
@@ -43,6 +54,8 @@ const PROJECTS = [
   {
     title: "Albert's Ark",
     image: "assets/games/alberts_ark.jpg",
+    gif: "images/alberts-ark-idle.gif",
+    poster: "assets/games/alberts_ark.jpg",
     kind: "2D Idle Clicker",
     year: "2024",
     role: "Gameplay · Early UI",
@@ -56,6 +69,8 @@ const PROJECTS = [
   {
     title: "Draft Fever Bowl",
     image: "assets/games/draft_fever_bowl.jpg",
+    gif: "images/draft-fever-bowl-ui.gif",
+    poster: "assets/games/draft_fever_bowl.jpg",
     kind: "Multiplayer Football Management Sim",
     year: "2024",
     role: "UI Systems · Tooling",
@@ -69,6 +84,8 @@ const PROJECTS = [
   {
     title: "The Amazing Saniboy",
     image: "assets/games/saniboy.png",
+    gif: "images/saniboy-gameplay.gif",
+    poster: "assets/games/saniboy.png",
     kind: "Mobile Virus Containment",
     year: "2023",
     role: "Full-stack Gameplay",
@@ -277,7 +294,7 @@ const SOCIAL = [
 const CONTACT = {
   email: "chamakhiseif@gmail.com",
   phone: "+216 52 099 160",
-  cv: "https://drive.google.com/file/d/1Shayj4BRshMVjOJOZbilu4hP3w5ozznC/view?usp=sharing",
+  cv: "https://drive.google.com/file/d/18RgUWAaUabxcabjLMv4DzMsVOc3KPPCL/view?usp=sharing",
 };
 
 const CASE_STUDIES = {
@@ -426,6 +443,7 @@ const CASE_STUDIES = {
 };
 
 Object.assign(window, {
+  GIFS_READY,
   PROJECTS,
   EXPERIENCE,
   EDUCATION,

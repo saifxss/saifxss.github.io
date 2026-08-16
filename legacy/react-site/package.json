@@ -1,0 +1,16 @@
+{
+  "name": "saifxss-portfolio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Saif Chamakhi — Unity Developer portfolio (saifxss.github.io)",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:dev": "node build.mjs --dev",
+    "watch": "node watch.mjs",
+    "serve": "python -m http.server 8000"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

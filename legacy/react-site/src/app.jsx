@@ -8,11 +8,15 @@ const BootScreen   = window.BootScreen;
 const CaseStudyModal = window.CaseStudyModal;
 
 // ─── Theme tokens ──────────────────────────────────────────────────────────
+// dim and veryDim are pinned to WCAG AA against each theme's bg (>=7:1 and
+// >=4.6:1). veryDim carries real content -- employment dates, locations,
+// education periods -- so it can't be treated as decorative. Re-check with a
+// contrast tool before darkening either.
 
 const THEMES = {
-  "dark-warm": { bg: "#0c0b09", panel: "#15130f", line: "#231f1a", text: "#f1ece0", dim: "#8a8275", veryDim: "#4a463d" },
-  "dark-cool": { bg: "#08090c", panel: "#101218", line: "#1b1e26", text: "#e8eaf0", dim: "#7d8392", veryDim: "#3f4452" },
-  "paper":     { bg: "#f1ede3", panel: "#e7e1d3", line: "#d6cfbf", text: "#1a1813", dim: "#6d685b", veryDim: "#a8a292" },
+  "dark-warm": { bg: "#0c0b09", panel: "#15130f", line: "#231f1a", text: "#f1ece0", dim: "#a09a8f", veryDim: "#817a6a" },
+  "dark-cool": { bg: "#08090c", panel: "#101218", line: "#1b1e26", text: "#e8eaf0", dim: "#959aa6", veryDim: "#717992" },
+  "paper":     { bg: "#f1ede3", panel: "#e7e1d3", line: "#d6cfbf", text: "#1a1813", dim: "#524e45", veryDim: "#706a5a" },
 };
 
 const ACCENTS = {
@@ -151,7 +155,7 @@ function Nav({ theme, accent }) {
               {it.label}
             </a>
           ))}
-          <a href={`mailto:${window.CONTACT.email}`} className="scc-nav-cta" style={{
+          <a href={`mailto:${window.CONTACT.email}`} className="scc-nav-cta" aria-label="Email Saif Chamakhi" style={{
             marginLeft: 8,
             padding: "8px 14px", borderRadius: 999,
             background: accent, color: theme.bg, textDecoration: "none",
@@ -232,7 +236,7 @@ function Hero({ theme, accent }) {
             <span style={{ color: accent }}>Open to full-time and contract work.</span>
           </p>
 
-          <div style={{ marginTop: 32, display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div className="scc-cta-row" style={{ marginTop: 32, display: "flex", gap: 12, flexWrap: "wrap" }}>
             <a href="#work" style={{
               display: "inline-flex", alignItems: "center", gap: 10,
               padding: "14px 22px", borderRadius: 999,
@@ -266,7 +270,9 @@ function Hero({ theme, accent }) {
         }}>
           <div style={{
             position: "absolute",
-            inset: "-12% -8% -8% -12%",
+            // No right-side bleed: this column is justified to the container
+            // edge, so bleeding right pushed past the viewport.
+            inset: "-12% 0 -8% -12%",
             background: `radial-gradient(60% 70% at 50% 45%, ${accent}22 0%, transparent 70%)`,
             filter: "blur(20px)",
             pointerEvents: "none",
@@ -280,6 +286,8 @@ function Hero({ theme, accent }) {
             <img
               src="assets/portrait.png"
               alt="Saif Chamakhi — Unity Game Developer"
+              loading="eager"
+              decoding="async"
               style={{
                 position: "absolute", inset: 0,
                 width: "100%", height: "100%",
@@ -359,16 +367,32 @@ function FeaturedCard({ p, theme, accent, idx, onOpenCaseStudy }) {
         transition: "transform .35s ease",
         transform: hover ? "translateY(-3px)" : "translateY(0)",
       }}>
-        {p.image && (
-          <img src={p.image} alt={p.title} loading="lazy" style={{
-            position: "absolute", inset: 0,
-            width: "100%", height: "100%",
-            objectFit: "cover", objectPosition: "center",
-            transition: "transform .6s ease, filter .35s ease",
-            transform: hover ? "scale(1.04)" : "scale(1)",
-            filter: hover ? "saturate(1.05)" : "saturate(0.95)",
-          }} />
-        )}
+        {p.image && (() => {
+          const isMobileView = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+          const reducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          const useStatic = isMobileView || reducedMotion || !window.GIFS_READY;
+          const imgSrc = (useStatic || !p.gif) ? p.image : p.gif;
+          return (
+            <img src={imgSrc} alt={`${p.title} — ${p.kind}`}
+              loading="lazy" decoding="async"
+              width="800" height="550"
+              // Until the gameplay GIFs land in images/, fall back to the static shot.
+              onError={e => {
+                const el = e.currentTarget;
+                if (el.dataset.fellBack) return;
+                el.dataset.fellBack = "1";
+                el.src = p.image;
+              }}
+              style={{
+                position: "absolute", inset: 0,
+                width: "100%", height: "100%",
+                objectFit: "cover", objectPosition: "center",
+                transition: "transform .6s ease, filter .35s ease",
+                transform: hover ? "scale(1.04)" : "scale(1)",
+                filter: hover ? "saturate(1.05)" : "saturate(0.95)",
+              }} />
+          );
+        })()}
         {!p.image && (
           <div style={{
             position: "absolute", inset: 0,
@@ -471,7 +495,9 @@ function SmallCard({ p, theme, accent, onOpenCaseStudy }) {
       }}>
       <div style={{ aspectRatio: "16/10", borderRadius: 10, overflow: "hidden", background: p.swatch[2], position: "relative" }}>
         {p.image && (
-          <img src={p.image} alt={p.title} loading="lazy" style={{
+          <img src={p.image} alt={`${p.title} — ${p.kind}`} loading="lazy" decoding="async"
+            width="800" height="500"
+            style={{
             position: "absolute", inset: 0, width: "100%", height: "100%",
             objectFit: "cover", objectPosition: "center",
             transition: "transform .5s ease",
@@ -867,7 +893,7 @@ function Contact({ theme, accent }) {
         <Mono style={{ fontSize: 13, color: accent, letterSpacing: "0.06em" }}>
           {"// "}<span style={{ color: theme.dim }}>let's talk</span>
         </Mono>
-        <a href={`mailto:${window.CONTACT.email}`} style={{ display: "block", marginTop: 24, textDecoration: "none", color: theme.text }}>
+        <a href={`mailto:${window.CONTACT.email}`} aria-label="Email Saif Chamakhi" style={{ display: "block", marginTop: 24, textDecoration: "none", color: theme.text }}>
           <h2 style={{
             margin: 0, fontSize: "clamp(48px, 10vw, 160px)",
             fontWeight: 600, letterSpacing: "-0.04em", lineHeight: 0.95, color: theme.text,
@@ -885,13 +911,15 @@ function Contact({ theme, accent }) {
           gap: 36, alignItems: "start",
         }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <ContactRow label="Email"  value={window.CONTACT.email}  href={`mailto:${window.CONTACT.email}`} theme={theme} accent={accent} />
-            <ContactRow label="Phone"  value={window.CONTACT.phone}  href={`tel:${window.CONTACT.phone.replace(/\s+/g, "")}`} theme={theme} accent={accent} />
-            <ContactRow label="CV"     value="Download PDF"           href={window.CONTACT.cv} ext theme={theme} accent={accent} />
+            <ContactRow label="Email"    value="Email"           href={`mailto:${window.CONTACT.email}`} ariaLabel="Email Saif Chamakhi" theme={theme} accent={accent} />
+            <ContactRow label="LinkedIn" value="LinkedIn"        href="https://www.linkedin.com/in/seif-chamakhi/" ariaLabel="Saif Chamakhi on LinkedIn" ext theme={theme} accent={accent} />
+            <ContactRow label="GitHub"   value="GitHub"          href="https://github.com/saifxss" ariaLabel="Saif Chamakhi on GitHub" ext theme={theme} accent={accent} />
+            <ContactRow label="Resume"   value="Download PDF"    href={window.CONTACT.cv} ariaLabel="Download Saif Chamakhi's resume" ext theme={theme} accent={accent} />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {window.SOCIAL.map(s => (
-              <ContactRow key={s.label} label={s.label} value={s.handle} href={s.href} ext theme={theme} accent={accent} />
+            <ContactRow label="Phone"  value={window.CONTACT.phone}  href={`tel:${window.CONTACT.phone.replace(/\s+/g, "")}`} ariaLabel="Call Saif Chamakhi" theme={theme} accent={accent} />
+            {window.SOCIAL.filter(s => s.label === "YouTube").map(s => (
+              <ContactRow key={s.label} label={s.label} value={s.handle} href={s.href} ariaLabel={`Saif Chamakhi on ${s.label}`} ext theme={theme} accent={accent} />
             ))}
           </div>
         </div>
@@ -900,9 +928,9 @@ function Contact({ theme, accent }) {
   );
 }
 
-function ContactRow({ label, value, href, ext, theme, accent }) {
+function ContactRow({ label, value, href, ext, ariaLabel, theme, accent }) {
   return (
-    <a href={href} target={ext ? "_blank" : undefined} rel={ext ? "noopener noreferrer" : undefined} style={{
+    <a href={href} target={ext ? "_blank" : undefined} rel={ext ? "noopener noreferrer" : undefined} aria-label={ariaLabel} style={{
       display: "flex", justifyContent: "space-between", alignItems: "baseline",
       padding: "14px 0", borderTop: `1px solid ${theme.line}`,
       textDecoration: "none", color: theme.text, transition: "color .15s",
@@ -929,7 +957,7 @@ function Footer({ theme }) {
         <Mono style={{ fontSize: 12, color: theme.veryDim, letterSpacing: "0.04em" }}>
           Built by hand.
         </Mono>
-        <a href="#hero" style={{ fontSize: 12, color: theme.dim, textDecoration: "none", fontFamily: "'JetBrains Mono', monospace" }}>↑ Top</a>
+        <a href="#hero" style={{ fontSize: 12, color: theme.dim, textDecoration: "none", fontFamily: "'JetBrains Mono', monospace", minWidth: 44, justifyContent: "center" }}>↑ Top</a>
       </div>
     </footer>
   );
@@ -1015,3 +1043,10 @@ function App() {
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+
+// Drop the pre-render placeholder as soon as React has actually painted,
+// rather than waiting out the fixed timeout in index.html.
+requestAnimationFrame(() => {
+  const loader = document.getElementById("scc-loading");
+  if (loader) loader.style.display = "none";
+});
