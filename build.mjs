@@ -171,6 +171,23 @@ const CSS = `
     position: absolute; inset: 0; width: 100%; height: 100%;
     object-fit: cover; display: block;
   }
+  /* "Now playing" readout — red, outlined so it stays legible on any frame of
+     the gameplay media underneath. text-shadow rather than -webkit-text-stroke,
+     which thins the glyphs at 11px. z-index keeps it above the media overlay. */
+  .now-playing {
+    color: #ff2b2b !important;
+    z-index: 2;
+    text-shadow:
+       1px  1px 0 #000,  -1px  1px 0 #000,
+       1px -1px 0 #000,  -1px -1px 0 #000,
+       0 2px 4px rgba(0, 0, 0, 0.9);
+  }
+  /* The blinking cue is part of the same readout, so it matches. */
+  .now-playing > span:first-child {
+    background: #ff2b2b !important;
+    box-shadow: 0 0 0 1px #000, 0 0 6px rgba(255, 43, 43, 0.9);
+  }
+
   /* Per-project store/video link, under the bullets in the cabinet panel. */
   .project-link {
     align-self: flex-start;
@@ -388,6 +405,26 @@ html = edit("content-drop-hero-badge", html,
       </div>
 `, "");
 
+// ══ CONTENT — drop the placeholder media captions ═════════════════════════
+// Two leftovers from the design mockup that label media rather than show it.
+//
+// 1. The arcade panel printed the raw shot filename ("maleficus-arena.png")
+//    next to the platform/year badges. The panel now shows the actual media,
+//    so the filename is noise — and it was stale anyway, still naming the .png
+//    after gifs/ took over.
+html = edit("content-drop-shot-caption", html,
+  `
+              <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:0.06em;text-transform:none;color:rgba(240,237,230,0.5)">{{ active.shot }}</span>`,
+  "");
+
+// 2. "showreel.mp4 — 30s gameplay cut" sat in the hero's bottom-right corner,
+//    captioning a background video that was never part of the export — the
+//    hero is a striped gradient. It described media that does not exist.
+html = edit("content-drop-showreel-caption", html,
+  `    <div style="position:absolute;right:44px;bottom:34px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;letter-spacing:0.06em;color:rgba(240,237,230,0.5)">showreel.mp4 — 30s gameplay cut</div>
+`,
+  "");
+
 // ══ CONTENT — per-project links ═══════════════════════════════════════════
 // The export ships no links, so every title is a dead end. These are the live
 // store/video pages, carried over from the previous portfolio's data.
@@ -429,6 +466,13 @@ html = edit("project-link-markup", html,
 html = edit("content-earlier-titles", html,
   `<span style="color:#F0EDE6">Slash And Dash</span> (BPM-driven obstacle generation, background VFX), <span style="color:#F0EDE6">Shells And Tails</span> (split-screen four-player local multiplayer), <span style="color:#F0EDE6">DaQueen</span> (ragdoll controller, Photon multiplayer)`,
   `<span style="color:#F0EDE6">Slash And Dash</span> (BPM-driven obstacle generation, background VFX), <span style="color:#F0EDE6">DaQueen</span> (ragdoll controller, Photon multiplayer)`);
+
+// ── "Now playing" readout: red with a black outline ──
+// It sits directly on top of the gameplay media, so it needs to survive
+// whatever is behind it — hence the outline rather than a plain colour swap.
+html = edit("cls-now-playing", html,
+  `<div style="position:absolute;top:20px;left:26px;display:flex;align-items:center;gap:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:oklch(0.8 0.13 320)">`,
+  `<div class="now-playing" style="position:absolute;top:20px;left:26px;display:flex;align-items:center;gap:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:oklch(0.8 0.13 320)">`);
 
 // ══ TASK 2 — real media in the project slot ═══════════════════════════════
 // The export renders {{ active.shot }} as a filename caption over a striped
