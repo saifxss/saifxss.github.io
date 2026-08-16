@@ -9,11 +9,16 @@
     const wrapRef = useRef(null);
     const [tilt, setTilt] = useState({ x: 0, y: 0 });
     const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 880px)").matches;
+    // On small phones the nested cabinet chrome eats ~145px of the viewport,
+    // which squeezes the 9-wide game board down to unusable cells.
+    const isNarrow = typeof window !== "undefined" && window.matchMedia("(max-width: 560px)").matches;
+    const prefersReducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const disableTilt = isMobile || prefersReducedMotion;
 
     // Subtle parallax tilt on mouse move — adds the "this is 3D" cue without
     // being nauseating. Desktop only.
     useEffect(() => {
-      if (isMobile) return;
+      if (disableTilt) return;
       const el = wrapRef.current;
       if (!el) return;
       const onMove = (e) => {
@@ -31,7 +36,7 @@
         window.removeEventListener("mousemove", onMove);
         el.removeEventListener("mouseleave", onLeave);
       };
-    }, [isMobile]);
+    }, [disableTilt]);
 
     // Blink cursor on marquee
     const [blink, setBlink] = useState(true);
@@ -52,7 +57,7 @@
           maxWidth: 1080,
           margin: "0 auto",
           transformStyle: "preserve-3d",
-          transform: isMobile ? "none" : `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
+          transform: disableTilt ? "none" : `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
           transition: "transform 0.25s ease-out",
         }}>
           {/* MARQUEE */}
@@ -97,14 +102,14 @@
           <div style={{
             position: "relative",
             background: wood,
-            padding: isMobile ? "14px" : "24px 32px 28px",
+            padding: isNarrow ? "8px" : isMobile ? "14px" : "24px 32px 28px",
           }}>
             {/* SCREEN BEZEL */}
             <div style={{
               position: "relative",
               background: "#0a0907",
               borderRadius: isMobile ? 12 : 16,
-              padding: isMobile ? 10 : 16,
+              padding: isNarrow ? 6 : isMobile ? 10 : 16,
               boxShadow: `
                 inset 0 0 0 1px rgba(255,255,255,.04),
                 inset 0 2px 8px rgba(0,0,0,.6),
@@ -141,7 +146,7 @@
                 position: "relative",
                 background: theme.bg,
                 borderRadius: isMobile ? 8 : 10,
-                padding: isMobile ? 18 : 28,
+                padding: isNarrow ? 8 : isMobile ? 18 : 28,
                 marginTop: isMobile ? 0 : 12,
                 overflow: "hidden",
                 boxShadow: "inset 0 0 60px rgba(0,0,0,.4)",

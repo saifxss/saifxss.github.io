@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://saifxss.github.io/sitemap.xml

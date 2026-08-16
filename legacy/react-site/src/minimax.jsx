@@ -319,7 +319,7 @@
         gap: 32, alignItems: "stretch",
       }}>
         {/* Board panel */}
-        <div style={{
+        <div className="scc-minimax-board-panel" style={{
           background: theme.panel, border: `1px solid ${theme.line}`,
           borderRadius: 16, padding: 18,
           display: "flex", flexDirection: "column", gap: 14,
@@ -409,7 +409,7 @@
           </div>
 
           {/* Telemetry */}
-          <div style={{
+          <div className="scc-minimax-telemetry" style={{
             background: theme.panel, border: `1px solid ${theme.line}`,
             borderRadius: 12, padding: 14,
             display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16,
