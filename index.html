@@ -232,6 +232,20 @@
     color: rgba(240, 237, 230, 0.5);
   }
 
+  /* ── Cabinet screen: one size for every title ──
+     The case-notes panel is a grid item on an auto-sized row, so the row grows
+     to whatever the tallest title needs and the whole screen resized as you
+     switched projects. The Amazing SaniBoy is the outlier: four bullets plus a
+     store link, where most titles have two bullets. Pinning the height fixes
+     the screen; the panel already carries overflow:auto inline, so the one
+     title that runs long scrolls inside a cabinet that no longer moves.
+
+     Desktop only. At ≤1024px the screen stacks into two rows and each child
+     gets its own min-height, so a fixed height there would crush them. */
+  @media (min-width: 1025px) {
+    .arcade-screen { height: 470px; }
+  }
+
   /* ── ≤1024px tablet ── */
   @media (max-width: 1024px) {
     .stat-band { grid-template-columns: repeat(2, 1fr) !important; }
@@ -396,7 +410,7 @@
 
           <div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:{{ active.anim }} 460ms cubic-bezier(.2,.8,.3,1)">
             <sc-if value="{{ active.media }}">
-              <img class="shot-media" src="{{ active.media }}" alt="{{ active.title }} gameplay" loading="lazy" decoding="async" width="800" height="500">
+              <img class="shot-media" key="{{ active.media }}" src="{{ active.media }}" alt="{{ active.title }} gameplay" loading="lazy" decoding="async" width="800" height="500">
               <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
             </sc-if>
             <sc-if value="{{ active.nofoot }}">
