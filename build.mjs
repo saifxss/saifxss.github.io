@@ -171,6 +171,22 @@ const CSS = `
     position: absolute; inset: 0; width: 100%; height: 100%;
     object-fit: cover; display: block;
   }
+  /* Per-project store/video link, under the bullets in the cabinet panel. */
+  .project-link {
+    align-self: flex-start;
+    display: inline-flex; align-items: center; gap: 8px;
+    min-height: 44px; padding: 10px 18px;
+    border: 1px solid rgba(240, 237, 230, 0.28);
+    font-size: 11.5px; font-weight: 600;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: #F0EDE6; text-decoration: none;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .project-link:hover {
+    background: rgba(240, 237, 230, 0.07);
+    border-color: #F0EDE6;
+  }
+
   /* Shown instead of a still when a project has nothing shippable. */
   .no-footage {
     position: absolute; inset: 0;
@@ -360,6 +376,52 @@ html = edit("content-shells-and-tails", html,
       "Built the gameplay for each rule-set mini-game, each with its own win condition and feel.",
       "Wired the split-screen camera rig and four-player local input handling."
     ]`);
+
+// ══ CONTENT — drop the hero availability badge ════════════════════════════
+// The pulsing-dot "Open to full-time & contract · Remote EU/GMT" strip is a
+// generated-portfolio tell. The same information is already stated plainly in
+// the contact section, so the badge only costs credibility.
+html = edit("content-drop-hero-badge", html,
+  `      <div style="display:flex;align-items:center;gap:14px;font-size:11px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:oklch(0.75 0.14 320);margin-bottom:40px">
+        <span style="width:7px;height:7px;border-radius:50%;background:oklch(0.68 0.16 320);box-shadow:0 0 0 5px oklch(0.62 0.16 320 / 0.22)"></span>
+        Open to full-time &amp; contract · Remote EU/GMT
+      </div>
+`, "");
+
+// ══ CONTENT — per-project links ═══════════════════════════════════════════
+// The export ships no links, so every title is a dead end. These are the live
+// store/video pages, carried over from the previous portfolio's data.
+// Tikto King has none — its <sc-if> simply renders nothing.
+const PROJECT_LINKS = {
+  "Maleficus":           ["https://www.youtube.com/watch?v=ot-bKn4FcaU", "Watch the demo"],
+  "Tikto King":          null,
+  "The Amazing SaniBoy": ["https://play.google.com/store/apps/details?id=com.readytoplay.saniboy&hl=en_US", "Google Play"],
+  "Draft Fever Bowl":    ["https://store.steampowered.com/app/3100820/Draft_Fever_Bowl/", "Steam store"],
+  "The Plooshies":       ["https://x.com/ThePlooshies/status/1828855091933159454", "See it on X"],
+  "Shells And Tails":    ["https://www.youtube.com/watch?v=yojNNBnJC4A&t=1s", "Watch on YouTube"],
+  "Albert's Ark Idle":   ["https://store.steampowered.com/app/3088750/Alberts_Ark_Idle/", "Steam store"],
+};
+
+let linked = 0;
+for (const [title, pair] of Object.entries(PROJECT_LINKS)) {
+  if (!pair) continue;
+  const [href, label] = pair;
+  const find = `title: ${JSON.stringify(title)}, year:`;
+  if (!html.includes(find)) {
+    throw new Error(`transform "content-project-links": no PROJECTS entry titled ${title}. Update PROJECT_LINKS in build.mjs.`);
+  }
+  html = html.replace(find, `title: ${JSON.stringify(title)}, link: ${JSON.stringify(href)}, linkLabel: ${JSON.stringify(label)}, year:`);
+  linked++;
+}
+applied.push(`content-project-links(${linked})`);
+
+// Render it under the tech tags, inside the cabinet's right-hand panel.
+html = edit("project-link-markup", html,
+  `            <div style="margin-top:auto;display:flex;flex-wrap:wrap;gap:7px">`,
+  `            <sc-if value="{{ active.link }}">
+              <a class="project-link" href="{{ active.link }}" target="_blank" rel="noopener" aria-label="{{ active.title }} — {{ active.linkLabel }} (opens in a new tab)">{{ active.linkLabel }} <span aria-hidden="true">↗</span></a>
+            </sc-if>
+            <div style="margin-top:auto;display:flex;flex-wrap:wrap;gap:7px">`);
 
 // Shells And Tails is now a showcased project, so drop it from the "earlier
 // titles" line below the cabinet — it was listed there while Super One held the
