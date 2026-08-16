@@ -3,7 +3,7 @@
 //   bundle/index.bundle.html   (pristine export — the only file you replace)
 //        |
 //        v  node build.mjs
-//   index.html + assets/dc-runtime.js   (generated, committed for GitHub Pages)
+//   index.html   (generated, committed for GitHub Pages — the whole site)
 //
 // The export is a bundler-wrapped document: a loader unpacks a base64/gzip
 // manifest holding the real page. Editing that by hand is impractical and any
@@ -14,16 +14,19 @@
 // Each transform ASSERTS that it matched. If a re-export changes the markup a
 // transform targets, the build fails loudly naming the transform, rather than
 // silently dropping a fix and shipping a regression.
+//
+// The last stage RENDERS the template (see prerender.mjs), so what ships is
+// finished HTML. There is no client-side template engine, no React download,
+// and nothing to go wrong between the server responding and the page being
+// readable. index.html is the entire site.
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { extname } from "node:path";
-import { gunzipSync } from "node:zlib";
-import { createHash } from "node:crypto";
+import { runInNewContext } from "node:vm";
+import { findBlock, createContext, renderTemplate } from "./prerender.mjs";
 
 const BUNDLE = "bundle/index.bundle.html";
 const OUT_HTML = "index.html";
-const OUT_RUNTIME = "assets/dc-runtime.js";
-const VENDOR = "assets/vendor";
 
 const SITE = "https://saifxss.github.io";
 const EMAIL = "chamakhiseif@gmail.com";
@@ -64,79 +67,18 @@ const grab = (kind) => {
   return JSON.parse(m[1].trim());
 };
 
-const manifest = grab("manifest");
 let html = grab("template");
 
-// The runtime is the only manifest entry we still need as a file: fonts get
-// replaced by a Google Fonts link below, and React/ReactDOM the runtime fetches
-// from unpkg itself.
-const runtimeUuid = (html.match(/<script src="([0-9a-f-]{36})"><\/script>/) || [])[1];
-if (!runtimeUuid || !manifest[runtimeUuid]) throw new Error("could not locate the dc-runtime entry");
-const entry = manifest[runtimeUuid];
-let runtime = Buffer.from(entry.data, "base64");
-if (entry.compressed) runtime = gunzipSync(runtime);
-
-// ══ RESILIENCE — self-host React instead of fetching it from unpkg ════════
-// The runtime renders NOTHING until React and ReactDOM arrive, and it pulls
-// both from unpkg at page load. One CDN outage, one blocked third-party
-// request (corporate proxy, tracking blocker, offline visitor) and the page
-// paints empty. Both UMD builds now ship from assets/vendor/ instead.
-//
-// The SRI hash goes with them, and that is deliberate. The runtime sets
-// crossOrigin="anonymous" on any script carrying an integrity attribute
-// (loadScript, dc-runtime.js), which turns a plain same-origin <script> into a
-// CORS request. Over file:// — opening index.html directly, or an IDE preview
-// — the origin is "null", the check can never pass, and React silently never
-// loads. SRI exists to catch a THIRD PARTY serving something else; these files
-// ship from this repo, so there is no third party left to distrust.
-//
-// The guarantee moves to build time instead: the hash the runtime pinned is
-// verified against the bytes on disk here, every build, and the build fails if
-// they ever drift. Same protection, checked earlier, no CORS.
-//
-// @babel/standalone is deliberately left on unpkg: it is only fetched for
-// <x-import> of JSX modules, which this page does not use, so vendoring 3 MB
-// for a code path that never runs would be dead weight.
-let runtimeSrc = runtime.toString("utf8");
-mkdirSync("assets", { recursive: true });
-
-for (const [pkg, sriVar, remote] of [
-  ["react", "REACT_SRI", "https://unpkg.com/react@18.3.1/umd/react.production.min.js"],
-  ["react-dom", "REACT_DOM_SRI", "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"],
-]) {
-  const local = `${VENDOR}/${remote.split("/").pop()}`;
-  if (!existsSync(local)) {
-    throw new Error(
-      `transform "vendor-${pkg}": ${local} is missing.\n` +
-      `Download it from ${remote} — the build verifies its hash against the runtime's pin.`
-    );
-  }
-
-  const pinned = new RegExp(`var ${sriVar} = "(sha384-[^"]+)";`).exec(runtimeSrc)?.[1];
-  if (!pinned) throw new Error(`transform "vendor-${pkg}": could not read ${sriVar} from the runtime.`);
-  const actual = "sha384-" + createHash("sha384").update(readFileSync(local)).digest("base64");
-  if (actual !== pinned) {
-    throw new Error(
-      `transform "vendor-${pkg}": ${local} does not match the version the runtime pins.\n` +
-      `  runtime ${sriVar}: ${pinned}\n  ${local}: ${actual}\n` +
-      `Re-download it from ${remote}.`
-    );
-  }
-
-  runtimeSrc = edit(`vendor-${pkg}`, runtimeSrc, `"${remote}"`, `"${local}"`);
-  // Drop the integrity pin so the tag loads as a same-origin script, not CORS.
-  runtimeSrc = edit(`vendor-${pkg}-sri`, runtimeSrc, `var ${sriVar} = "${pinned}";`, `var ${sriVar} = "";`);
-}
-
-writeFileSync(OUT_RUNTIME, runtimeSrc);
+// The bundle also carries dc-runtime and the fonts as manifest entries. Neither
+// ships any more: the fonts become a Google Fonts link below, and the runtime
+// is not needed at all once the page is rendered here instead of in the
+// browser. The manifest is left unread.
 
 // ══ TASK 5 — <html lang> ═══════════════════════════════════════════════════
 html = edit("lang", html, "<html><head>", '<html lang="en"><head>');
 
-// ── runtime now loads from disk instead of a manifest uuid ─────────────────
-html = edit("runtime-src", html,
-  `<script src="${runtimeUuid}"></script>`,
-  `<script src="${OUT_RUNTIME}"></script>`);
+// ── the runtime script tag goes away entirely ─────────────────────────────
+html = editRe("drop-runtime-tag", html, /<script src="[0-9a-f-]{36}"><\/script>/, "");
 
 // ══ PERF — swap ~570KB of inlined woff2 for a Google Fonts link ════════════
 // The export inlines every @font-face as base64. That is the single biggest
@@ -163,14 +105,6 @@ const HEAD = `
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#0E0D11">
 <link rel="icon" href="favicon.ico">
-<!-- The <x-dc> block below is a CLIENT-SIDE TEMPLATE: dc-runtime parses it and
-     replaces it with the rendered page. Until that happens its raw {{ }}
-     expressions are literal text. dc-runtime hides it itself on first line of
-     execution, but that is no use if the runtime is the thing that failed to
-     load, so the same rule is stated here inline, where nothing can stop it.
-     The load-guard in the body reveals the static resume if the render never
-     lands, so hiding this can never leave a blank page. -->
-<style>x-dc{display:none!important}</style>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -195,15 +129,6 @@ html = edit("head-meta", html,
 // a class here and the real CSS lives in one stylesheet.
 const CSS = `
 <style>
-  /* ── Undo the runtime's preview-frame sizing ──
-     dc-runtime injects  html,body{height:100%}  and  #dc-root{height:100%}
-     so the app fills Claude Design's preview iframe. On a standalone page that
-     pins the document to the viewport height, so the DOCUMENT never scrolls and
-     the BODY scrolls internally instead — which breaks position:sticky, anchor
-     links, scroll restoration and every scroll-driven measurement. */
-  html, body { height: auto !important; min-height: 100% !important; }
-  #dc-root, #dc-root > .sc-host { height: auto !important; min-height: 100% !important; }
-
   /* ── Task 1: kill horizontal scroll ──
      overflow-x lives on body only. Putting it on html promotes html to a scroll
      container, which forces overflow-y to auto and re-breaks document scrolling. */
@@ -282,6 +207,42 @@ const CSS = `
     font-size: 13px; letter-spacing: 0;
     color: rgba(240, 237, 230, 0.5);
   }
+
+  /* ── Cabinet buttons ──
+     These were <div>s with a click handler and per-state inline styles baked in
+     by the template engine. They are real <button>s now, so they are reachable
+     by keyboard and announce their state, and the selected look is driven by
+     aria-pressed instead of inline style — which is what lets the page swap
+     titles without re-rendering the row. */
+  .cab-btn {
+    cursor: pointer; display: flex; flex-direction: column; align-items: center;
+    gap: 8px; width: 118px; background: none; border: 0; padding: 0;
+    font: inherit; color: inherit; -webkit-appearance: none;
+  }
+  .cab-dot {
+    width: 44px; height: 44px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums;
+    background: radial-gradient(circle at 34% 28%, #3A3745, #17151D);
+    border: 1px solid rgba(240, 237, 230, 0.2);
+    box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.55);
+    color: rgba(240, 237, 230, 0.72);
+    transition: transform 130ms, box-shadow 130ms, background 130ms, color 130ms;
+  }
+  .cab-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; text-align: center; line-height: 1.35;
+    color: rgba(240, 237, 230, 0.42); transition: color 130ms;
+  }
+  .cab-btn[aria-pressed="true"] .cab-dot {
+    background: radial-gradient(circle at 34% 28%, oklch(0.78 0.15 320), oklch(0.5 0.16 320));
+    border-color: oklch(0.82 0.12 320);
+    box-shadow: 0 0 22px oklch(0.62 0.16 320 / 0.75), inset 0 -3px 6px rgba(0, 0, 0, 0.4);
+    color: #120F16;
+  }
+  .cab-btn[aria-pressed="true"] .cab-label { color: #F0EDE6; }
+  .cab-btn:hover .cab-dot { transform: translateY(-2px); }
+  .cab-btn:active .cab-dot { transform: translateY(2px); }
 
   /* ── Cabinet screen: one size for every title ──
      The case-notes panel is a grid item on an auto-sized row, so the row grows
@@ -550,6 +511,35 @@ html = edit("content-earlier-titles", html,
   `<span style="color:#F0EDE6">Slash And Dash</span> (BPM-driven obstacle generation, background VFX), <span style="color:#F0EDE6">Shells And Tails</span> (split-screen four-player local multiplayer), <span style="color:#F0EDE6">DaQueen</span> (ragdoll controller, Photon multiplayer)`,
   `<span style="color:#F0EDE6">Slash And Dash</span> (BPM-driven obstacle generation, background VFX), <span style="color:#F0EDE6">DaQueen</span> (ragdoll controller, Photon multiplayer)`);
 
+// ══ A11Y + PRERENDER — cabinet controls become real buttons ═══════════════
+// The seven title buttons and the prev/next pair were <div>s carrying a
+// runtime click binding, so they were unreachable by keyboard and invisible to
+// assistive tech. They become <button>s addressed by data-* attributes, which
+// the small vanilla script at the end of the page wires up.
+//
+// The per-state inline styles ({{ p.btnBg }} and friends) come off here too:
+// with the look driven by aria-pressed in CSS, switching titles is one
+// attribute flip instead of a re-render of the whole row.
+html = edit("cabinet-buttons", html,
+  `<div sc-camel-on-click="{{ p.select }}" title="{{ p.title }}" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;width:118px">
+              <div style="width:44px;height:44px;border-radius:50%;background:{{ p.btnBg }};border:1px solid {{ p.btnBorder }};box-shadow:{{ p.btnShadow }};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;font-variant-numeric:tabular-nums;color:{{ p.btnText }};transition:transform 130ms,box-shadow 130ms" style-hover="transform:translateY(-2px)" style-active="transform:translateY(2px)">{{ p.num }}</div>
+              <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;text-align:center;line-height:1.35;color:{{ p.labelColor }}">{{ p.title }}</div>
+            </div>`,
+  `<button type="button" class="cab-btn" data-project="{{ p.index }}" aria-pressed="{{ p.pressed }}">
+              <span class="cab-dot" aria-hidden="true">{{ p.num }}</span>
+              <span class="cab-label">{{ p.title }}</span>
+            </button>`);
+
+const NAV_STYLE = "cursor:pointer;border:1px solid rgba(240,237,230,0.24);padding:11px 15px;font-size:12px;font-weight:700;letter-spacing:0.1em";
+const NAV_HOVER = "border-color:#F0EDE6;background:rgba(240,237,230,0.08)";
+for (const [dir, glyph, label] of [["prev", "◀", "Previous title"], ["next", "▶", "Next title"]]) {
+  html = edit(`cabinet-nav-${dir}`, html,
+    `<div sc-camel-on-click="{{ ${dir} }}" style="${NAV_STYLE}" style-hover="${NAV_HOVER}">${glyph}</div>`,
+    `<button type="button" data-nav="${dir}" aria-label="${label}" ` +
+    `style="${NAV_STYLE};background:none;color:inherit;font-family:inherit;min-height:44px" ` +
+    `style-hover="${NAV_HOVER}"><span aria-hidden="true">${glyph}</span></button>`);
+}
+
 // ══ CONTENT — tell people the cabinet is interactive ══════════════════════
 // The instruction already existed, but as the tail of the section intro in the
 // header's top-right, roughly a full screen above the buttons it describes. By
@@ -687,99 +677,6 @@ if (oversized.length) {
   ].join("\n");
 }
 
-// ══ TASK 4 — static fallback résumé ═══════════════════════════════════════
-// This used to be a plain <noscript> block, which only covers one of the two
-// ways a visitor ends up with no page: JavaScript switched off. The other way
-// is JavaScript switched ON but the render never landing (dc-runtime blocked,
-// React unreachable, a throw mid-boot). <noscript> does nothing there.
-//
-// So the résumé is now always in the DOM, hidden, and revealed by whichever
-// signal fires:
-//   JS off            -> the <noscript> stylesheet below unhides it
-//   JS on, no render  -> the load-guard script unhides it and drops <x-dc>
-//   JS on, rendered   -> nothing fires, it stays hidden
-// The visitor always gets real content, and never raw {{ }} markup.
-const FALLBACK = `
-<div id="static-resume" hidden>
-  <div style="max-width:800px;margin:0 auto;padding:60px 24px;font-family:'Libre Franklin',Helvetica,Arial,sans-serif;line-height:1.6;color:#F0EDE6">
-    <h1>Saif Chamakhi</h1>
-    <p><strong>Unity Developer</strong> — gameplay systems, UI architecture, netcode</p>
-    <p>Five years and nine shipped commercial titles across Steam, Google Play, and WebGL — including a mobile release past 100,000 downloads at 4.7 stars. I turn tightly coupled prototypes into modular systems a team can extend without breaking them.</p>
-    <p>Open to full-time and contract work. Tunis, Tunisia · Remote EU/GMT.</p>
-
-    <h2>Selected work</h2>
-    <ul>
-      <li><strong>Maleficus</strong> (2025, PC) — multiplayer arena spell game; event-driven refactor, strict UI/gameplay separation.</li>
-      <li><strong>Tikto King</strong> (2025, Mobile) — multi-game platform; Minimax + alpha-beta AI.</li>
-      <li><strong>Shells And Tails</strong> (2022, PC) — four-player split-screen showdown; per-mini-game rule sets, split-screen camera and local input.</li>
-      <li><strong>Draft Fever Bowl</strong> (2024, Steam) — owned the UI layer, responsive popup framework reused team-wide.</li>
-      <li><strong>The Plooshies</strong> (2024, WebGL) — Photon Fusion multiplayer, WebGL performance.</li>
-      <li><strong>Albert's Ark Idle</strong> (2024, Steam) — progression systems and early UI through to release.</li>
-      <li><strong>The Amazing SaniBoy</strong> (2023, Google Play) — 100,000+ downloads at 4.7 stars.</li>
-    </ul>
-
-    <h2>Experience</h2>
-    <h3>StolenPad — Unity Developer (2026 – Present)</h3>
-    <p>5+ hypercasual prototypes from concept to playable build; restored and republished a 20+ title back catalogue; cut web and mobile build sizes with compression, profiling and Addressables.</p>
-    <h3>BNJMO — Unity Developer (Feb 2025 – Feb 2026)</h3>
-    <p>Authored the studio's shared framework (audio, announcements, event layer, UI transitions), distributed via Git submodules and reused across Tikto King, Maleficus and client projects.</p>
-    <h3>Blue Gravity Studios — Game Developer (Nov 2023 – Sep 2024)</h3>
-    <p>Owned the UI layer on Draft Fever Bowl in a 20+ person Steam production; Photon Fusion integration and WebGL optimisation on The Plooshies.</p>
-    <h3>READY TO TEK — Game Developer (Feb 2023 – Nov 2023)</h3>
-    <p>Shipped The Amazing SaniBoy to Google Play; JSON-encrypted store, Google Play services, ads and leaderboards.</p>
-
-    <h2>Stack</h2>
-    <ul>
-      <li><strong>Engines &amp; languages</strong> — Unity 3D/2D, Unity 6, C#, .NET, C++</li>
-      <li><strong>Multiplayer &amp; netcode</strong> — Photon Fusion, Photon Quantum, client/server sync, state synchronisation</li>
-      <li><strong>Gameplay &amp; AI</strong> — gameplay systems, Minimax / alpha-beta, Animator, VFX/SFX, physics</li>
-      <li><strong>UI systems</strong> — Unity UI / Canvas, responsive layouts, reusable components, UI/gameplay separation</li>
-      <li><strong>Architecture</strong> — OOP, SOLID, event-driven, ScriptableObjects, state machines, modular frameworks</li>
-      <li><strong>Performance &amp; tooling</strong> — Unity Profiler, texture compression, Addressables, build size &amp; memory, editor tooling</li>
-      <li><strong>Platforms</strong> — Android, iOS, Google Play, Steam, WebGL, REST APIs, JSON, ad networks</li>
-      <li><strong>Workflow</strong> — Git / GitHub / GitLab, Agile (Scrum/Kanban), Jira, Notion</li>
-    </ul>
-
-    <h2>Education</h2>
-    <p>Bachelor's in Video Game Development — ISAMM, Manouba (2019–2022)</p>
-    <p>Languages: Arabic (native), English (professional), French (fluent)</p>
-
-    <h2>Contact</h2>
-    <p>
-      <a href="mailto:${EMAIL}" style="color:#F0EDE6">Email</a> ·
-      <a href="${LINKEDIN}" style="color:#F0EDE6">LinkedIn</a> ·
-      <a href="${GITHUB}" style="color:#F0EDE6">GitHub</a> ·
-      <a href="${RESUME}" target="_blank" rel="noopener" style="color:#F0EDE6">Resume</a>
-    </p>
-    <p>Phone: +216 52 099 160</p>
-  </div>
-</div>
-<noscript><style>#static-resume{display:block!important}</style></noscript>
-<script>
-(function () {
-  // Has dc-runtime replaced <x-dc> with a rendered #dc-root yet?
-  function rendered() {
-    var root = document.getElementById("dc-root");
-    return !!(root && root.firstElementChild);
-  }
-  function check() {
-    if (rendered()) return;
-    var dc = document.querySelector("x-dc");
-    if (dc) dc.remove();
-    var fallback = document.getElementById("static-resume");
-    if (fallback) fallback.hidden = false;
-  }
-  // Two triggers, because neither alone is reliable: "load" waits for the
-  // gameplay media (slow, and it never fires if a request hangs), while a bare
-  // timer can outrun React on a cold connection. Whichever lands first wins,
-  // and check() is a no-op once the page has rendered.
-  setTimeout(check, 8000);
-  addEventListener("load", function () { setTimeout(check, 2000); });
-})();
-</script>
-`;
-html = edit("static-fallback", html, "<body>", "<body>" + FALLBACK);
-
 // ══ TYPOGRAPHY — no em dashes ═════════════════════════════════════════════
 // Runs LAST, on the finished document, so every transform above can keep
 // matching the bundle's own em-dashed markup verbatim. Anything that ships
@@ -792,14 +689,132 @@ applied.push(`no-em-dashes(${emDashes})`);
 // newlines are left alone so indented markup keeps its shape.
 html = html.replace(/[ \t]*—[ \t]*/g, " ");
 
+// ══ PRERENDER — render the template here, ship HTML ═══════════════════════
+// Everything above still speaks the export's template language. This stage
+// runs it, once, and emits the result. See prerender.mjs for why.
+//
+// The page's own logic class is the source of truth: it is evaluated in a
+// sandbox and asked for its bindings, exactly as the browser would, so the
+// rendered output cannot drift from what the design intended.
+const templateBlock = findBlock(html, "x-dc");
+if (!templateBlock) throw new Error("prerender: no template block in the document.");
+const logicMatch = html.match(/<script type="text\/x-dc"[^>]*>([\s\S]*?)<\/script>/);
+if (!logicMatch) throw new Error("prerender: no page logic script in the document.");
+
+// Evaluate the logic. componentDidMount touches the DOM and is never called;
+// only renderVals() is, which is pure.
+const sandbox = { DCLogic: class { constructor(props) { this.props = props || {}; } setState() {} }, console };
+runInNewContext(logicMatch[1] + "\n;globalThis.__Component = Component;", sandbox);
+const logic = new sandbox.__Component({ revealOnScroll: true });
+
+/** Bindings for the cabinet with project `open` selected. */
+function valsFor(open) {
+  logic.state = { open, tick: 0 };
+  const vals = logic.renderVals();
+  // Two extra fields the button markup needs, now that selection is an
+  // attribute rather than a set of inlined colours.
+  vals.projects = vals.projects.map((p, i) => ({ ...p, index: i, pressed: i === open ? "true" : "false" }));
+  return vals;
+}
+
+const ctx = createContext();
+const projectCount = valsFor(0).projects.length;
+
+// The cabinet screen is the one region that changes when a title is selected.
+// Each state is rendered now and parked in an inert <template>; the client
+// script clones one in on click. Inert matters: media inside a <template> is
+// not fetched, so parking seven panels does not pull seven GIFs.
+const screenStart = templateBlock.inner.indexOf('<div class="arcade-screen"');
+if (screenStart < 0) throw new Error("prerender: could not find the cabinet screen.");
+const screen = findBlock(templateBlock.inner, "div", screenStart);
+if (screen.start !== screenStart) throw new Error("prerender: cabinet screen block did not resolve cleanly.");
+
+const panels = [];
+for (let i = 0; i < projectCount; i++) {
+  panels.push(`<template data-arcade="${i}">${renderTemplate(screen.inner, valsFor(i), ctx)}</template>`);
+}
+
+let page = renderTemplate(templateBlock.inner, valsFor(0), ctx);
+if (/\{\{|<sc-|sc-camel-/.test(page)) {
+  throw new Error("prerender: template constructs survived rendering. " +
+    (page.match(/\{\{[^}]*\}\}|<sc-[a-z-]+|sc-camel-[\w-]+/g) || []).slice(0, 5).join(", "));
+}
+
+// <helmet> is the export's way of saying "this belongs in <head>".
+const helmet = findBlock(page, "helmet");
+if (!helmet) throw new Error("prerender: no <helmet> block.");
+page = page.slice(0, helmet.start) + page.slice(helmet.end);
+
+const RUNTIME_JS = `
+<script>
+(function () {
+  var screen = document.querySelector(".arcade-screen");
+  var buttons = [].slice.call(document.querySelectorAll(".cab-btn"));
+  var open = 0;
+
+  function show(i) {
+    var n = buttons.length;
+    i = ((i % n) + n) % n;
+    var panel = document.querySelector('template[data-arcade="' + i + '"]');
+    if (!panel || !screen) return;
+    // Replacing the subtree rather than re-pointing the <img> src is what keeps
+    // a heavy GIF from lingering: the old element is gone, so the browser has
+    // nothing stale left to paint while the new capture loads. It also replays
+    // the boot animation for free.
+    screen.replaceChildren(panel.content.cloneNode(true));
+    for (var j = 0; j < n; j++) buttons[j].setAttribute("aria-pressed", j === i ? "true" : "false");
+    open = i;
+  }
+
+  buttons.forEach(function (button, i) {
+    button.addEventListener("click", function () { show(i); });
+  });
+  var prev = document.querySelector('[data-nav="prev"]');
+  var next = document.querySelector('[data-nav="next"]');
+  if (prev) prev.addEventListener("click", function () { show(open - 1); });
+  if (next) next.addEventListener("click", function () { show(open + 1); });
+
+  // Reveal on scroll, lifted from the design's own componentDidMount. Guarded
+  // so the content is never left invisible if anything here is unavailable.
+  var reveal = [].slice.call(document.querySelectorAll("[data-reveal]"));
+  if (!reveal.length || !("IntersectionObserver" in window)) return;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  reveal.forEach(function (node) {
+    node.style.opacity = "0";
+    node.style.transform = "translateY(16px)";
+    node.style.transition = "opacity 640ms cubic-bezier(.22,.61,.36,1), transform 640ms cubic-bezier(.22,.61,.36,1)";
+  });
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      e.target.style.opacity = "1";
+      e.target.style.transform = "none";
+      io.unobserve(e.target);
+    });
+  }, { rootMargin: "0px 0px -8% 0px", threshold: 0.05 });
+  reveal.forEach(function (node) { io.observe(node); });
+})();
+</script>`;
+
+// Swap the template block for the rendered page, hoist the helmet into <head>,
+// and add the generated hover/active CSS the template used to carry inline.
+const pseudoCss = ctx.css();
+html = html.slice(0, templateBlock.start) +
+  page + "\n" + panels.join("\n") + RUNTIME_JS +
+  html.slice(templateBlock.end);
+html = html.replace(/<script type="text\/x-dc"[\s\S]*?<\/script>\n?/, "");
+html = html.replace("</head>", helmet.inner + (pseudoCss ? `<style>\n  ${pseudoCss}\n</style>\n` : "") + "</head>");
+applied.push(`prerender(${projectCount} panels, ${pseudoCss.split("\n").length} pseudo rules)`);
+
 // ── emit ───────────────────────────────────────────────────────────────────
 const banner = "<!-- Generated by build.mjs from bundle/index.bundle.html. Do not edit by hand. -->\n";
 html = html.replace("<!DOCTYPE html>", "<!DOCTYPE html>\n" + banner.trim());
 writeFileSync(OUT_HTML, html);
 
 const kb = (n) => (n / 1024).toFixed(1) + " KB";
-console.log(`${OUT_HTML}      ${kb(Buffer.byteLength(html))}   (bundle was ${kb(bundle.length)})`);
-console.log(`${OUT_RUNTIME}  ${kb(Buffer.byteLength(runtimeSrc))}`);
+console.log(`${OUT_HTML}   ${kb(Buffer.byteLength(html))}   (bundle was ${kb(bundle.length)})`);
+console.log("no runtime, no React: the page ships as HTML.");
 console.log(`\n${applied.length} transforms applied:`);
 console.log("  " + applied.join(", "));
 console.log(`

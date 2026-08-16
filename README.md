@@ -14,21 +14,29 @@ bundle/index.bundle.html   pristine Claude Design export  <- replace this
         |
         |  node build.mjs
         v
-index.html + assets/dc-runtime.js    generated, committed
+index.html                 generated, committed — the whole site
 ```
 
-`build.mjs` unpacks the bundle and applies every fix the raw export lacks —
-responsive breakpoints, SEO metadata, a noscript fallback, accessible contact
-links, keyboard focus states. Hand-editing `index.html` is pointless: the next
-build overwrites it.
+`build.mjs` unpacks the bundle, applies every fix the raw export lacks —
+responsive breakpoints, SEO metadata, accessible contact links, keyboard focus
+states — and then **renders the template to finished HTML**. Hand-editing
+`index.html` is pointless: the next build overwrites it.
+
+The export is a client-side app: it downloads React and a template runtime,
+parses the page out of an `<x-dc>` block and renders it in the browser. That is
+not how this site ships. `prerender.mjs` runs the template at build time
+against the design's own logic class, so `index.html` is ordinary markup. No
+React, no runtime, no `{{ }}` in the served page, and the site reads correctly
+with JavaScript switched off. The only script that ships is ~40 lines of
+vanilla JS for the cabinet and the scroll reveal.
 
 ## Updating the design
 
 1. Export the new bundle from Claude Design.
 2. Replace `bundle/index.bundle.html` with it.
 3. `npm run build`
-4. Commit `index.html` and `assets/dc-runtime.js` — GitHub Pages serves static
-   files and never runs a build.
+4. Commit `index.html` — GitHub Pages serves static files and never runs a
+   build.
 
 **If a transform fails**, the build stops and names it, e.g.:
 
@@ -76,9 +84,9 @@ Contentful Paint, so its weight goes straight to the Lighthouse score. Prefer
 `.webm`/`.mp4` over `.gif` — usually 5-10x smaller at the same quality — and
 target under 1 MB, ~800x500, 12-15 fps, 6-10 second loop.
 
-Note there is no client-side fallback for a missing file: the runtime turns the
-HTML into React elements, so an inline `onerror=""` is handed to React as a
-string prop and throws. Hence the build-time resolution.
+Resolution is build-time by necessity as well as by choice: the page is
+rendered before it ships, so a missing file is caught here rather than 404-ing
+in a visitor's browser.
 
 ## What build.mjs fixes
 
@@ -87,7 +95,8 @@ string prop and throws. Hence the build-time resolution.
 | Responsive | Breakpoints at 1024 / 768 / 480px; the export ships none |
 | Performance | ~570 KB of inlined woff2 swapped for a Google Fonts link |
 | SEO | Title, description, canonical, Open Graph, JSON-LD (export title is "Bundled Page") |
-| No-JS | `<noscript>` fallback with the full resume for crawlers |
+| No-JS | The page is prerendered, so it reads fully with JS off |
+| Weight | ~210 KB of React + runtime removed; nothing to download before first paint |
 | Contact | Raw address hidden behind an "Email" label; LinkedIn + Resume added; aria-labels |
 | A11y | `lang="en"`, `:focus-visible` rings, `prefers-reduced-motion`, 44x44 touch targets |
 
@@ -97,7 +106,8 @@ string prop and throws. Hence the build-time resolution.
 bundle/     pristine Claude Design export (build input)
 build.mjs   the build
 index.html  generated
-assets/     dc-runtime.js (generated), portrait.png, games/
+prerender.mjs  the template renderer used by the build
+assets/     portrait.png
 gifs/       animated captures (override images/)
 images/     static stills
 legacy/     archived previous versions of the site
