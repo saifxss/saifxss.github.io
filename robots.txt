@@ -5,4 +5,9 @@ Allow: /
 # with the live page in search results.
 Disallow: /legacy/
 
+# bundle/ is the raw Claude Design export that build.mjs reads. It has to
+# stay in the repo as the build input, but it is 900+ KB of unrendered
+# template source and must never be indexed as if it were the site.
+Disallow: /bundle/
+
 Sitemap: https://saifxss.github.io/sitemap.xml
