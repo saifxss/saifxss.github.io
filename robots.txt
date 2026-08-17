@@ -1,3 +1,8 @@
 User-agent: *
 Allow: /
+# legacy/ is the archived previous portfolio. GitHub Pages serves the whole
+# repo, so it is reachable — keep it out of the index so it never competes
+# with the live page in search results.
+Disallow: /legacy/
+
 Sitemap: https://saifxss.github.io/sitemap.xml
