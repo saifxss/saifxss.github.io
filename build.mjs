@@ -591,10 +591,18 @@ html = edit("cls-now-playing", html,
 // just 404 on every project switch with no way to recover.
 const MEDIA_EXT = [".gif", ".webp", ".avif", ".png", ".jpg", ".jpeg", ".mp4", ".webm"];
 const MEDIA_DIRS = ["gifs", "images"]; // search order — first hit wins
+const VIDEO_EXT = [".mp4", ".webm"];   // these render as <video>, not <img>
 const norm = (f) => f.toLowerCase().replace(/\.[^.]+$/, "").replace(/[^a-z0-9]/g, "");
 
+// A video's poster sits beside it as "<name>.poster.jpg". It is a companion to
+// that file, never a project's media in its own right, so it stays out of the
+// pool the matcher searches.
+const isPoster = (f) => /\.poster\.[^.]+$/i.test(f);
+
 const listDir = (d) =>
-  existsSync(d) ? readdirSync(d).filter((f) => MEDIA_EXT.includes(extname(f).toLowerCase())) : [];
+  existsSync(d)
+    ? readdirSync(d).filter((f) => MEDIA_EXT.includes(extname(f).toLowerCase()) && !isPoster(f))
+    : [];
 
 function resolveMedia(shot) {
   const want = norm(shot);
@@ -609,7 +617,14 @@ function resolveMedia(shot) {
       if (near.length === 1) { hit = near[0]; how = "  (name differs)"; }
       else if (near.length > 1) return { note: `ambiguous in ${dir}/ (${near.join(", ")}) — rename one` };
     }
-    if (hit) return { path: `${dir}/${hit}`, note: `<- ${dir}/${hit}${how || ""}` };
+    if (hit) {
+      const poster = `${dir}/${hit.replace(/\.[^.]+$/, "")}.poster.jpg`;
+      return {
+        path: `${dir}/${hit}`,
+        poster: existsSync(poster) ? poster : "",
+        note: `<- ${dir}/${hit}${how || ""}`,
+      };
+    }
   }
   return { note: "no file — shows the NDA note" };
 }
@@ -622,10 +637,12 @@ const notes = [];
 const oversized = [];
 let withMedia = 0, withoutMedia = 0;
 const mediaFor = new Map();
+const posterFor = new Map();
 
 for (const shot of [...html.matchAll(/shot:\s*"([^"]+)"/g)].map((m) => m[1])) {
   const r = resolveMedia(shot);
   mediaFor.set(shot, r.path || "");
+  posterFor.set(shot, r.poster || "");
   if (r.path) withMedia++; else withoutMedia++;
   let size = "";
   if (r.path) {
@@ -638,26 +655,42 @@ for (const shot of [...html.matchAll(/shot:\s*"([^"]+)"/g)].map((m) => m[1])) {
 }
 
 // Inject the resolved path (and the no-footage flag) into each PROJECTS entry.
+// Which element the panel uses is decided here, not at runtime: a .mp4/.webm
+// gets a <video>, everything else an <img>. The panel carries both branches
+// behind an sc-if, so each project renders exactly the one it needs.
 html = html.replace(/shot:\s*"([^"]+)"/g, (m, f) => {
   const path = mediaFor.get(f) || "";
-  return `${m}, media: ${JSON.stringify(path)}, nofoot: ${path ? "false" : "true"}`;
+  const vid = VIDEO_EXT.includes(extname(path).toLowerCase());
+  return (
+    `${m}, media: ${JSON.stringify(path)}` +
+    `, poster: ${JSON.stringify(posterFor.get(f) || "")}` +
+    `, vid: ${path && vid ? "true" : "false"}` +
+    `, img: ${path && !vid ? "true" : "false"}` +
+    `, nofoot: ${path ? "false" : "true"}`
+  );
 });
 
 const PANEL = '<div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:{{ active.anim }} 460ms cubic-bezier(.2,.8,.3,1)">';
 
-// key="{{ active.media }}" is load-bearing, not decoration. Without it React
-// keeps the same <img> node across a project switch and only swaps its src —
-// and a browser goes on painting the OLD image until the new one has decoded.
-// With multi-megabyte GIFs that is seconds of the previous game's footage
-// sitting under the new title, and spamming the buttons made it permanent.
-// A changing key remounts the element, so the panel falls back to its striped
-// background until the real media arrives and can never show the wrong game.
-// (The lasting cure is re-encoding those 20-30 MB GIFs the build warns about;
-// this makes the wait honest rather than wrong.)
+// Gameplay capture ships as H.264 rather than GIF: same 640x360 at 10fps, but
+// ~1/20th the bytes, and this media is the panel's Largest Contentful Paint.
+// The <video> is muted + playsinline so it autoplays everywhere a GIF would
+// have, and preload="none" keeps the six inactive panels off the wire until
+// the visitor selects them — only the poster frame is fetched up front.
+//
+// Stills still get an <img>: a project whose media is a .png/.jpg takes the
+// second branch, so mixing the two across projects costs nothing.
+const OVERLAY =
+  '              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>\n';
+
 html = edit("project-media", html, PANEL, PANEL + "\n" +
-  '            <sc-if value="{{ active.media }}">\n' +
-  '              <img class="shot-media" key="{{ active.media }}" src="{{ active.media }}" alt="{{ active.title }} — gameplay" loading="lazy" decoding="async" width="800" height="500">\n' +
-  '              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>\n' +
+  '            <sc-if value="{{ active.vid }}">\n' +
+  '              <video class="shot-media" src="{{ active.media }}" poster="{{ active.poster }}" autoplay loop muted playsinline preload="none" tabindex="-1" aria-label="{{ active.title }} — gameplay capture, no audio" width="800" height="500"></video>\n' +
+  OVERLAY +
+  '            </sc-if>\n' +
+  '            <sc-if value="{{ active.img }}">\n' +
+  '              <img class="shot-media" src="{{ active.media }}" alt="{{ active.title }} — gameplay" loading="lazy" decoding="async" width="800" height="500">\n' +
+  OVERLAY +
   '            </sc-if>\n' +
   '            <sc-if value="{{ active.nofoot }}">\n' +
   '              <div class="no-footage">\n' +
@@ -752,19 +785,36 @@ const RUNTIME_JS = `
   var buttons = [].slice.call(document.querySelectorAll(".cab-btn"));
   var open = 0;
 
+  var still = matchMedia("(prefers-reduced-motion: reduce)");
+
+  // A looping autoplay capture is exactly the kind of motion this setting is
+  // there to stop. The poster frame still shows, so the panel is never empty —
+  // it just holds a single frame instead of playing.
+  function respectMotion(root) {
+    if (!still.matches) return;
+    [].slice.call(root.querySelectorAll("video")).forEach(function (v) {
+      v.removeAttribute("autoplay");
+      v.pause();
+    });
+  }
+
   function show(i) {
     var n = buttons.length;
     i = ((i % n) + n) % n;
     var panel = document.querySelector('template[data-arcade="' + i + '"]');
     if (!panel || !screen) return;
-    // Replacing the subtree rather than re-pointing the <img> src is what keeps
-    // a heavy GIF from lingering: the old element is gone, so the browser has
-    // nothing stale left to paint while the new capture loads. It also replays
-    // the boot animation for free.
+    // Replacing the subtree rather than re-pointing the source is what keeps a
+    // heavy capture from lingering: the old element is gone, so the browser has
+    // nothing stale left to paint while the new one loads. It also replays the
+    // boot animation for free, and drops the outgoing <video> so it stops
+    // decoding the moment it leaves the screen.
     screen.replaceChildren(panel.content.cloneNode(true));
+    respectMotion(screen);
     for (var j = 0; j < n; j++) buttons[j].setAttribute("aria-pressed", j === i ? "true" : "false");
     open = i;
   }
+
+  respectMotion(document);
 
   buttons.forEach(function (button, i) {
     button.addEventListener("click", function () { show(i); });

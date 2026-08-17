@@ -68,8 +68,8 @@ images/  static stills       <- fallback
 full mapping and the file size on every run:
 
 ```
-Task 2: 6 with media, 1 without:
-     maleficus-arena.png      <- gifs/maleficus.gif  (name differs)  24.2 MB  << TOO BIG
+Task 2: 7 with media, 0 without:
+     maleficus-arena.png      <- gifs/maleficus.mp4  (name differs)  1.7 MB
      tikto-king-board.png     <- images/tikto.king-board.jpg  250 KB
      shells-and-tails.png     <- images/shells_and_tails.png  1.6 MB
 ```
@@ -80,9 +80,19 @@ refused and reported rather than guessed. A project with no file in either
 folder renders **"No footage — NDA restricted"** instead of a broken image.
 
 Files over 2 MB are flagged loudly. This media is the arcade panel's Largest
-Contentful Paint, so its weight goes straight to the Lighthouse score. Prefer
-`.webm`/`.mp4` over `.gif` — usually 5-10x smaller at the same quality — and
-target under 1 MB, ~800x500, 12-15 fps, 6-10 second loop.
+Contentful Paint, so its weight goes straight to the Lighthouse score.
+
+**Ship video, not GIF.** A `.mp4`/`.webm` renders as an autoplaying muted
+`<video>` with a poster frame; anything else renders as an `<img>`. The build
+chooses the element from the extension, so there is nothing to configure. The
+three captures here were GIFs until August 2026:
+
+```
+62.6 MB of GIF  ->  2.9 MB of H.264   (same 640x360 at 10 fps)
+```
+
+The originals are archived in `legacy/gifs/`. See `gifs/README.md` for the
+ffmpeg command and how poster frames work.
 
 Resolution is build-time by necessity as well as by choice: the page is
 rendered before it ships, so a missing file is caught here rather than 404-ing
