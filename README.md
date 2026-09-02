@@ -134,6 +134,31 @@ why the machine can be nearly a full viewport tall without ever landing on
 type: the heading is fluid, so the gap is measured rather than assumed, and it
 is re-measured whenever the layout changes.
 
+### Narrow screens
+
+Below 860px there is no column arrangement that leaves the case notes
+readable, so the layout changes shape rather than switching the cabinet off:
+
+```
+>= 860px   cabinet docked in its own column, PINNED to the viewport while
+           the case notes scroll past it
+<  860px   cabinet takes a full-width band above the notes and RIDES the
+           page with them; the hero appearance is dropped, because a narrow
+           headline already runs the full width
+```
+
+`arcade3d.js` does not repeat that breakpoint. It measures the dock element
+and infers the layout from its shape - a track that spans the shell means the
+stylesheet had no room to put it beside anything. The CSS decides; the
+choreography follows.
+
+Touch is handled as touch, not as a mouse with a shorter arm. On a coarse
+pointer nothing is dragged and nothing calls `preventDefault`, because a
+finger landing on a cabinet that fills the screen is usually starting a
+scroll: controls are worked by tapping, and a press that travels more than
+12px is treated as the scroll it was. The buffer is also capped at 1.4x
+device pixels below 860px rather than 1.75x.
+
 The screen runs the selected project's own capture as a texture, under a CRT
 shader (barrel glass, aperture grille, a roll on every switch). The two
 joysticks and six buttons are live: push a stick left or right, or hit a
@@ -173,20 +198,31 @@ these and the visitor gets today's page, unchanged:
 |---|---|
 | No JavaScript | The page is prerendered; the work section is whole |
 | No WebGL2 | The loader probes for a context and gives up if refused |
-| Under 1180px | A cabinet plus case notes has nowhere to stand |
 | `prefers-reduced-motion` | A cabinet flying down the page is exactly that motion |
+| Save-Data | ~750 KB of Three.js over a metered connection, for decoration |
+| Under 360px | No arrangement leaves the case notes readable |
 | `?no3d` in the URL | Escape hatch, for comparing the two |
 
-Crossing the width gate either way is handled live: shrink the window and the
-cabinet tears itself down, hands the capture back to the flat panel and
+Crossing that floor either way is handled live: shrink the window past it and
+the cabinet tears itself down, hands the capture back to the flat panel and
 restores the markup; widen it and it comes back.
+
+**Every gate says which one closed**, once, in the console:
+
+```
+[arcade3d] not running: the system asks for reduced motion
+[arcade3d] not running: opened from the filesystem. ES modules need an http:// origin
+```
+
+They were all silent to begin with, which made "why is there no cabinet" a
+question you could only answer by reading the source.
 
 Nothing here touches first paint. The module and Three.js are imported on
 `load`, and the module URL carries a hash of its own bytes so a deploy cannot
 be served a stale cabinet.
 
 ```
-js/arcade3d.js               47 KB   (16 KB gzipped)
+js/arcade3d.js               51 KB   (17 KB gzipped)
 vendor/three.*.min.js       733 KB  (184 KB gzipped)  pinned three@0.185.1
 ```
 
