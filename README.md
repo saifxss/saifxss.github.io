@@ -211,6 +211,24 @@ much each one earns:
   click a title in the button row below, the sticks flick the way the selection
   travelled. Driving the row while the sticks sat still made the cabinet look
   like a screen someone else was operating.
+- **The light is real light.** Every glow started out faked with an additive
+  sprite, which is why the halo round the tube took three attempts to stop
+  reading as a donut hanging in front of the cabinet. The emissive parts now
+  declare themselves with a layer, get drawn into a half-resolution target,
+  bright-passed, blurred separably and added back over the finished frame - so
+  the tube throws light onto its own bezel. Added OVER the frame rather than
+  replacing it, because the canvas has to stay transparent: the page shows
+  through wherever the machine is dark, and the alpha rides the light where it
+  is not. A full composer would have meant handing tone mapping to an output
+  pass and re-tuning the whole look, for 44 KB of vendored addons; this is
+  about 120 lines and no new files. It costs ~6ms a frame on a desktop and is
+  switched off below 860px and on coarse pointers, where the sprites carry the
+  glow as before.
+- **Nothing is factory-new.** A noise map on roughness breaks up the specular
+  so the body stops looking injection-moulded; the side art is scuffed pale and
+  grimed dark across its bottom foot, where a real cabinet takes every shoe in
+  the arcade; and the control deck is worn faintly pale where two players'
+  hands would have rested. All drawn at boot, so none of it is on the wire.
 
 **Nothing here is load-bearing.** The flat cabinet still renders, still holds
 its own capture, and is still the accessible control surface: the seven title
@@ -246,7 +264,7 @@ Nothing here touches first paint. The module and Three.js are imported on
 be served a stale cabinet.
 
 ```
-js/arcade3d.js               58 KB   (19 KB gzipped)
+js/arcade3d.js               69 KB   (22 KB gzipped)
 vendor/three.*.min.js       733 KB  (184 KB gzipped)  pinned three@0.185.1
 ```
 

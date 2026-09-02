@@ -77,6 +77,10 @@ const SCREEN_H = 0.82; // the capture is 16:9 and is cover-cropped to fit
 const BEVEL = 0.008;
 const LIFT = BEVEL + 0.014;
 
+// Objects on this layer are ALSO drawn into the bloom pass. Everything that
+// is supposed to emit light says so by joining it; nothing else needs to know.
+const GLOW_LAYER = 1;
+
 const CAM_Z = 7.4;
 const FOV = 30;
 
@@ -173,6 +177,25 @@ function sideArtTexture() {
       g.stroke();
     }
 
+    // Kick marks. The bottom foot of a cabinet takes every shoe in the arcade,
+    // so the art there is scuffed pale and the very base is grimed dark.
+    const kick = g.createLinearGradient(0, h * 0.86, 0, h);
+    kick.addColorStop(0, "rgba(0,0,0,0)");
+    kick.addColorStop(1, "rgba(0,0,0,0.42)");
+    g.fillStyle = kick;
+    g.fillRect(0, h * 0.86, w, h * 0.14);
+    for (let i = 0; i < 26; i++) {
+      const y = h * (0.82 + Math.random() * 0.17);
+      const x = Math.random() * w;
+      const len = 12 + Math.random() * 70;
+      g.strokeStyle = "rgba(240,237,230," + (0.03 + Math.random() * 0.07).toFixed(3) + ")";
+      g.lineWidth = 1 + Math.random() * 3;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x + len, y + (Math.random() - 0.5) * 5);
+      g.stroke();
+    }
+
     // A magenta sweep across the upper third, the way cabinet art wraps the
     // monitor, and a big ghosted initial low on the panel.
     const sweep = g.createLinearGradient(0, h * 0.1, w, h * 0.52);
@@ -234,6 +257,16 @@ function deckArtTexture() {
     g.fillStyle = "rgba(240,237,230,0.68)";
     g.fillText("1P", w * 0.13, h * 0.84);
     g.fillText("2P", w * 0.87, h * 0.84);
+
+    // Where the heels of two players' hands have sat for years. Faint, but it
+    // is the difference between a control panel and a rectangle.
+    for (const cx of [w * 0.22, w * 0.78]) {
+      const worn = g.createRadialGradient(cx, h * 0.62, 4, cx, h * 0.62, w * 0.13);
+      worn.addColorStop(0, "rgba(255,255,255,0.10)");
+      worn.addColorStop(1, "rgba(255,255,255,0)");
+      g.fillStyle = worn;
+      g.fillRect(cx - w * 0.13, h * 0.62 - w * 0.13, w * 0.26, w * 0.26);
+    }
   });
 }
 
@@ -426,6 +459,47 @@ function instructionTagTexture() {
   });
 }
 
+/**
+ * Wear, as a roughness map.
+ *
+ * Every surface on this machine was perfectly uniform, which is most of what
+ * makes a render read as a render: a real cabinet has hand grease around the
+ * controls, dust settled in the corners, and polish worn through where people
+ * lean on it. One noise map on roughness breaks the specular up enough to kill
+ * that, and costs nothing on the wire because it is drawn here.
+ *
+ * Roughness is sampled from the green channel and is data, not colour, so this
+ * one texture opts out of the sRGB transform the others want.
+ */
+function wearTexture() {
+  const tex = canvasTexture(512, 512, (g, w, h) => {
+    g.fillStyle = "#b0b0b0";
+    g.fillRect(0, 0, w, h);
+
+    // Broad blotches. Grime and polish arrive in patches, never per-pixel.
+    for (let i = 0; i < 110; i++) {
+      const x = Math.random() * w;
+      const y = Math.random() * h;
+      const r = 16 + Math.random() * 96;
+      const v = Math.random() > 0.5 ? 255 : 74;
+      const blot = g.createRadialGradient(x, y, 0, x, y, r);
+      blot.addColorStop(0, "rgba(" + v + "," + v + "," + v + ",0.20)");
+      blot.addColorStop(1, "rgba(" + v + "," + v + "," + v + ",0)");
+      g.fillStyle = blot;
+      g.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+
+    // Dust.
+    for (let i = 0; i < 4200; i++) {
+      g.fillStyle = Math.random() > 0.5 ? "rgba(255,255,255,0.055)" : "rgba(52,52,52,0.055)";
+      g.fillRect(Math.random() * w, Math.random() * h, 1.6, 1.6);
+    }
+  });
+  tex.colorSpace = THREE.NoColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
 /** A soft radial disc, used additively for every light bloom in the scene. */
 function glowTexture() {
   return canvasTexture(128, 128, (g, w) => {
@@ -609,9 +683,20 @@ function buildCabinet() {
   // Group 1 is everything the extrusion swept: front, back, deck, bezel.
   const art = sideArtTexture();
   art.repeat.set(1 / DEPTH, 1 / HEIGHT);
+  // One map, two repeats: the side panels are large and flat so the pattern
+  // has to be broken up more there than on the front, where the eye is closer.
+  const sideWear = wearTexture();
+  sideWear.repeat.set(2, 2);
+  const faceWear = wearTexture();
+  faceWear.repeat.set(3, 7);
+
   const body = new THREE.Mesh(bodyGeo, [
-    new THREE.MeshStandardMaterial({ map: art, roughness: 0.58, metalness: 0.0 }),
-    new THREE.MeshStandardMaterial({ color: SHELL, roughness: 0.46, metalness: 0.35 }),
+    new THREE.MeshStandardMaterial({
+      map: art, roughnessMap: sideWear, roughness: 0.62, metalness: 0.0,
+    }),
+    new THREE.MeshStandardMaterial({
+      color: SHELL, roughnessMap: faceWear, roughness: 0.5, metalness: 0.35,
+    }),
   ]);
   group.add(body);
 
@@ -621,6 +706,7 @@ function buildCabinet() {
     new THREE.MeshBasicMaterial({ map: marqueeTexture(), toneMapped: false })
   );
   marquee.position.set(0, 3.12, -0.16 + LIFT);
+  marquee.layers.enable(GLOW_LAYER);
   group.add(marquee);
 
   // The backlight tube behind it spills onto the cabinet's top and the wall.
@@ -664,6 +750,7 @@ function buildCabinet() {
   );
   screen.position.set(0, glassAt.y, glassAt.z + LIFT + 0.006);
   screen.rotation.x = -glassAt.tilt;
+  screen.layers.enable(GLOW_LAYER);
   group.add(screen);
 
   // The tube throws light into the room. One sprite for the halo on the glass,
@@ -822,6 +909,7 @@ function buildCabinet() {
     ball.userData.hit = "stick";
     pivot.add(ball);
 
+    ball.layers.enable(GLOW_LAYER);
     group.add(stick);
     joysticks.push({ group: stick, pivot, ball, side, tilt: 0, vel: 0, target: 0, hold: 0 });
   }
@@ -857,6 +945,7 @@ function buildCabinet() {
       halo.position.y = 0.04;
       holder.add(halo);
 
+      cap.layers.enable(GLOW_LAYER);
       group.add(holder);
       // Normalised 0..1 across the deck, left to right, so the attract sweep
       // can run in screen order rather than in the order they were built.
@@ -964,6 +1053,7 @@ export default function boot() {
     vh = innerHeight;
     settled = false; // re-seat the springs; a resize is not a movement
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, vw < 860 ? 1.4 : 1.75));
+    glowOn = !matchMedia("(pointer: coarse)").matches && vw >= 860;
     renderer.setSize(vw, vh, false);
     camera.aspect = vw / vh;
     camera.updateProjectionMatrix();
@@ -1330,6 +1420,170 @@ export default function boot() {
     syncMedia();
   }
 
+  // ── bloom ──
+  //
+  // Every glow on this machine was faked with an additive sprite, which is why
+  // the halo round the tube took three attempts to stop reading as a donut
+  // hanging in front of the cabinet. This is the real thing: the emissive
+  // parts are drawn on their own layer into a half-resolution target, blurred
+  // separably, and added back over the finished frame.
+  //
+  // It is added OVER the frame rather than replacing it, which matters on a
+  // canvas that has to stay transparent: the page shows through everywhere the
+  // machine does not glow, and where it does, additive blending lifts the
+  // alpha too so the light reads against the page instead of being cut out by
+  // it. Doing this through a full composer would have meant handing tone
+  // mapping to an output pass and re-tuning the whole look.
+  const BLUR = `
+    uniform sampler2D uTex;
+    uniform vec2 uStep;
+    varying vec2 vUv;
+    void main() {
+      // Nine taps, gaussian weights, one axis per pass.
+      vec4 sum = texture2D(uTex, vUv) * 0.2270270270;
+      sum += texture2D(uTex, vUv + uStep * 1.3846153846) * 0.3162162162;
+      sum += texture2D(uTex, vUv - uStep * 1.3846153846) * 0.3162162162;
+      sum += texture2D(uTex, vUv + uStep * 3.2307692308) * 0.0702702703;
+      sum += texture2D(uTex, vUv - uStep * 3.2307692308) * 0.0702702703;
+      gl_FragColor = sum;
+    }
+  `;
+  const QUAD_VERT = `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = vec4(position.xy, 0.0, 1.0);
+    }
+  `;
+
+  // Bright pass. Without it the whole emissive layer blooms - including the
+  // mid-tones of the gameplay capture - and the picture comes back veiled.
+  // Only the part of each pixel ABOVE the threshold is kept, so the marquee
+  // and the lit parts of the tube glow and the rest stays where it was.
+  const PREFILTER = `
+    uniform sampler2D uTex;
+    uniform float uThreshold;
+    varying vec2 vUv;
+    void main() {
+      vec3 c = texture2D(uTex, vUv).rgb;
+      float l = max(max(c.r, c.g), c.b);
+      gl_FragColor = vec4(c * (max(l - uThreshold, 0.0) / max(l, 1e-4)), 1.0);
+    }
+  `;
+
+  const quadGeo = new THREE.PlaneGeometry(2, 2);
+  const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const quadScene = new THREE.Scene();
+  const blurMat = new THREE.ShaderMaterial({
+    vertexShader: QUAD_VERT,
+    fragmentShader: BLUR,
+    uniforms: { uTex: { value: null }, uStep: { value: new THREE.Vector2() } },
+    depthTest: false,
+    depthWrite: false,
+  });
+  const preMat = new THREE.ShaderMaterial({
+    vertexShader: QUAD_VERT,
+    fragmentShader: PREFILTER,
+    uniforms: { uTex: { value: null }, uThreshold: { value: 0.52 } },
+    depthTest: false,
+    depthWrite: false,
+  });
+  const quad = new THREE.Mesh(quadGeo, blurMat);
+  quad.frustumCulled = false;
+  quadScene.add(quad);
+
+  // The composite. Its own material because it blends rather than replaces,
+  // and because the strength is animated with the choreography.
+  const glowMat = new THREE.ShaderMaterial({
+    vertexShader: QUAD_VERT,
+    fragmentShader: `
+      uniform sampler2D uTex;
+      uniform float uStrength;
+      varying vec2 vUv;
+      void main() {
+        vec3 c = texture2D(uTex, vUv).rgb * uStrength;
+        // Alpha rides the light: transparent where the machine is dark, so
+        // the page keeps showing through everywhere it does not glow.
+        gl_FragColor = vec4(c, max(max(c.r, c.g), c.b));
+      }
+    `,
+    uniforms: { uTex: { value: null }, uStrength: { value: 1 } },
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthTest: false,
+    depthWrite: false,
+  });
+
+  let glowA = null;
+  let glowB = null;
+
+  function sizeGlow() {
+    // Half resolution. Bloom is the one thing nobody can see the pixels of,
+    // and it is the whole cost of the effect.
+    const w = Math.max(2, Math.round((vw * renderer.getPixelRatio()) / 2));
+    const h = Math.max(2, Math.round((vh * renderer.getPixelRatio()) / 2));
+    if (glowA && glowA.width === w && glowA.height === h) return;
+    if (glowA) glowA.dispose();
+    if (glowB) glowB.dispose();
+    const opts = { type: THREE.HalfFloatType, depthBuffer: false, stencilBuffer: false };
+    glowA = new THREE.WebGLRenderTarget(w, h, opts);
+    glowB = new THREE.WebGLRenderTarget(w, h, opts);
+  }
+
+  /** Draw the emissive layer, blur it, and leave the result in glowA. */
+  function renderGlow() {
+    sizeGlow();
+    const prevBg = scene.background;
+    scene.background = null;
+
+    camera.layers.set(GLOW_LAYER);
+    renderer.setRenderTarget(glowA);
+    renderer.setClearColor(0x000000, 1);
+    renderer.clear(true, true, false);
+    renderer.render(scene, camera);
+    camera.layers.set(0);
+
+    quad.material = preMat;
+    preMat.uniforms.uTex.value = glowA.texture;
+    renderer.setRenderTarget(glowB);
+    renderer.render(quadScene, quadCam);
+    // glowB now holds only the over-bright part; bounce it back so the blur
+    // loop below starts where it expects to.
+    quad.material = blurMat;
+    blurMat.uniforms.uTex.value = glowB.texture;
+    blurMat.uniforms.uStep.value.set(0, 0);
+    renderer.setRenderTarget(glowA);
+    renderer.render(quadScene, quadCam);
+
+    for (let i = 0; i < 2; i++) {
+      const spread = 1 + i * 1.7; // second pass reaches further, for a soft falloff
+      blurMat.uniforms.uTex.value = glowA.texture;
+      blurMat.uniforms.uStep.value.set(spread / glowA.width, 0);
+      renderer.setRenderTarget(glowB);
+      renderer.render(quadScene, quadCam);
+
+      blurMat.uniforms.uTex.value = glowB.texture;
+      blurMat.uniforms.uStep.value.set(0, spread / glowA.height);
+      renderer.setRenderTarget(glowA);
+      renderer.render(quadScene, quadCam);
+    }
+
+    renderer.setRenderTarget(null);
+    renderer.setClearColor(0x000000, 0);
+    scene.background = prevBg;
+  }
+
+  /** Add the blurred light over the frame that is already on the canvas. */
+  function compositeGlow(strength) {
+    glowMat.uniforms.uTex.value = glowA.texture;
+    glowMat.uniforms.uStrength.value = strength;
+    quad.material = glowMat;
+    const prevAutoClear = renderer.autoClear;
+    renderer.autoClear = false;
+    renderer.render(quadScene, quadCam);
+    renderer.autoClear = prevAutoClear;
+  }
+
   // ── the travel, with mass ──
   // The keyframes give a target every frame; the cabinet is not snapped to it.
   // It is chased by a deliberately under-damped spring, so it overshoots a
@@ -1349,6 +1603,11 @@ export default function boot() {
 
   // ── loop ──
   let opacity = 1;
+  // The one device check the renderer makes for itself: everything else is
+  // gated in the loader, but this is a cost decision, not a capability one.
+  // Re-read on resize, so dragging a window across the breakpoint switches it
+  // rather than leaving whatever was true at boot.
+  let glowOn = false;
   let running = true;
   let boot = 0; // 0 -> 1 over the first half second, so it fades in
   let last = performance.now();
@@ -1469,7 +1728,13 @@ export default function boot() {
     cab.screenUniforms.uSwitch.value = Math.max(0, cab.screenUniforms.uSwitch.value - dt * 1.9);
     cab.screenGlow.material.opacity = 0.44 + Math.sin(clock.t * 2.2) * 0.05;
 
+    // Bloom costs a second pass over the emissive layer plus four blur draws.
+    // Worth it on a desktop where the machine fills the screen; not worth it on
+    // a phone GPU already carrying a video texture, so there the sprites carry
+    // the glow on their own as before.
+    if (glowOn) renderGlow();
     renderer.render(scene, camera);
+    if (glowOn) compositeGlow(1.15 * opacity);
   }
 
   // ── wire up ──
@@ -1517,6 +1782,12 @@ export default function boot() {
           m.dispose();
         }
       });
+      if (glowA) glowA.dispose();
+      if (glowB) glowB.dispose();
+      quadGeo.dispose();
+      blurMat.dispose();
+      preMat.dispose();
+      glowMat.dispose();
       renderer.dispose();
     },
   };
