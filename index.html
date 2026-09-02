@@ -254,6 +254,86 @@
        has to be pinned back to its start or the ticker reads as empty. */
     .ticker-track { transform: none !important; }
   }
+
+  /* ══ the 3D cabinet ══
+     Every rule here is scoped to html.a3d, which only arcade3d.js sets, and
+     only once a WebGL2 context is actually running. Nothing below applies to a
+     visitor without JS, without a GPU, on a phone, or with reduced motion on:
+     they get the flat cabinet, unchanged. */
+  /* opacity is written every frame by the scroll choreography, so there is
+     deliberately no transition here: one would smear behind the scroll. The
+     fade-in at boot is a ramp inside the render loop instead. */
+  #a3d {
+    position: fixed; inset: 0; z-index: 3;
+    opacity: 0; visibility: hidden;
+    /* The cabinet floats over the page for most of its travel, so it must
+       never eat a click. arcade3d.js hit-tests on window events instead. */
+    pointer-events: none;
+  }
+  .a3d #a3d { visibility: visible; }
+  #a3d canvas { display: block; width: 100%; height: 100%; }
+
+  /* Where the capture sits while the tube is showing it. On screen and at a
+     real size, because a display:none video stops decoding and the texture
+     freezes; fully transparent and behind the page, because nobody should see
+     it twice. */
+  #a3d-src {
+    position: fixed; left: 0; top: 0; z-index: -1;
+    width: 320px; height: 180px; overflow: hidden;
+    opacity: 0; pointer-events: none;
+  }
+  #a3d-src video, #a3d-src img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* The column the cabinet docks into for the length of the work section. */
+  .a3d-dock { display: none; }
+  .a3d .a3d-dock { display: block; grid-column: 1; grid-row: 1; min-height: 1px; }
+
+  /* The shell keeps its content and loses its chrome: the border, the gradient
+     and the drop shadow were standing in for a cabinet, and there is one now. */
+  .a3d .cab-shell {
+    display: grid;
+    /* The cabinet sizes itself off this track, so widening it zooms the
+       machine in. The case notes keep a comfortable measure either way. */
+    grid-template-columns: min(34vw, 460px) 1fr;
+    column-gap: 44px;
+    border: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    animation: none !important;
+  }
+  .a3d .cab-shell > *:not(.a3d-dock) { grid-column: 2; }
+
+  /* Each of these has a real counterpart on the machine now. */
+  .a3d .cab-marquee, .a3d .cab-1p, .a3d .shot-scrim { display: none !important; }
+
+  .a3d .cab-screenwrap {
+    margin-top: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
+  }
+
+  /* One column: the capture moved to the tube, so the left pane is reduced to
+     a title card and the case notes run the full width beneath it. */
+  .a3d .arcade-screen {
+    grid-template-columns: 1fr !important;
+    min-height: 0 !important;
+  }
+  .a3d .cab-media {
+    min-height: 0 !important;
+    padding: 22px 26px 18px !important;
+    gap: 10px !important;
+    border-bottom: 1px solid rgba(240, 237, 230, 0.1);
+  }
+  /* Absolute made sense over a video. Over a title card it would overlap it. */
+  .a3d .cab-media .now-playing { position: static !important; }
+  .a3d .cab-notes { border-left: 0 !important; overflow: visible !important; }
+  .a3d .no-footage {
+    position: static !important;
+    align-items: flex-start; padding: 4px 0;
+  }
 </style>
 <style>
   .sx1:hover{background:oklch(0.72 0.15 320) !important;color:#0E0D11 !important}
@@ -387,21 +467,23 @@
       <div style="font-size:14.5px;line-height:1.6;color:rgba(240,237,230,0.68);max-width:34ch;text-wrap:pretty">Seven of nine titles, with the systems I owned on each.</div>
     </div>
 
-    <div data-reveal="1" style="position:relative;border:1px solid rgba(240,237,230,0.16);border-radius:26px 26px 8px 8px;background:linear-gradient(180deg,#1B1822 0%,#141219 46%,#100F14 100%);padding:26px 26px 30px;box-shadow:0 40px 90px rgba(0,0,0,0.55),inset 0 1px 0 rgba(240,237,230,0.09);animation:hum 5.5s ease-in-out infinite">
+    <div data-reveal="1" class="cab-shell" style="position:relative;border:1px solid rgba(240,237,230,0.16);border-radius:26px 26px 8px 8px;background:linear-gradient(180deg,#1B1822 0%,#141219 46%,#100F14 100%);padding:26px 26px 30px;box-shadow:0 40px 90px rgba(0,0,0,0.55),inset 0 1px 0 rgba(240,237,230,0.09);animation:hum 5.5s ease-in-out infinite">
 
-      <div style="position:relative;border-radius:14px 14px 4px 4px;background:linear-gradient(180deg,oklch(0.34 0.12 320) 0%,oklch(0.24 0.1 320) 100%);border:1px solid oklch(0.62 0.16 320 / 0.45);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px;overflow:hidden">
+      <div class="a3d-dock" aria-hidden="true"></div>
+
+      <div class="cab-marquee" style="position:relative;border-radius:14px 14px 4px 4px;background:linear-gradient(180deg,oklch(0.34 0.12 320) 0%,oklch(0.24 0.1 320) 100%);border:1px solid oklch(0.62 0.16 320 / 0.45);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px;overflow:hidden">
         <div style="position:absolute;inset:0;background:radial-gradient(80% 160% at 50% -30%, rgba(255,255,255,0.32), transparent 62%);animation:marquee-glow 4.2s ease-in-out infinite;pointer-events:none"></div>
         <div style="position:relative;font-weight:800;font-size:clamp(20px,2.4vw,32px);letter-spacing:0.16em;text-transform:uppercase;text-shadow:0 0 22px oklch(0.78 0.14 320 / 0.85)">Saif Chamakhi</div>
         <div style="position:relative;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.82)">Select title 7 credits</div>
       </div>
 
-      <div style="margin-top:22px;border-radius:20px;background:#08080B;border:1px solid rgba(240,237,230,0.1);padding:16px;box-shadow:inset 0 0 60px rgba(0,0,0,0.9)">
+      <div class="cab-screenwrap" style="margin-top:22px;border-radius:20px;background:#08080B;border:1px solid rgba(240,237,230,0.1);padding:16px;box-shadow:inset 0 0 60px rgba(0,0,0,0.9)">
         <div class="arcade-screen" style="position:relative;border-radius:12px;overflow:hidden;background:#0C0B10;display:grid;grid-template-columns:1.25fr 1fr;gap:0;min-height:430px">
 
-          <div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-media" style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             
               <video class="shot-media" src="gifs/maleficus.mp4" poster="gifs/maleficus.poster.jpg" autoplay loop muted playsinline preload="none" tabindex="-1" aria-label="Maleficus gameplay capture, no audio" width="800" height="500"></video>
-              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
+              <div class="shot-scrim" style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
             
             
             
@@ -415,7 +497,7 @@
             </div>
           </div>
 
-          <div style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-notes" style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             <div style="font-family:Spectral,Georgia,serif;font-style:italic;font-size:17px;line-height:1.45;color:rgba(240,237,230,0.82);text-wrap:pretty">Multiplayer arena spell game. Refactored a coupled codebase into an event-driven architecture with strict UI/gameplay separation.</div>
             <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:13px">
               
@@ -451,7 +533,7 @@
       </div>
 
       <div class="arcade-controls" style="margin-top:26px;display:grid;grid-template-columns:auto 1fr auto;gap:32px;align-items:center;border-top:1px solid rgba(240,237,230,0.1);padding-top:26px">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:9px">
+        <div class="cab-1p" style="display:flex;flex-direction:column;align-items:center;gap:9px">
           <div style="width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 34% 28%, #34313D, #131118);border:1px solid rgba(240,237,230,0.18);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 2px 6px rgba(0,0,0,0.7)">
             <div style="width:15px;height:15px;border-radius:50%;background:oklch(0.62 0.16 320);box-shadow:0 0 16px oklch(0.62 0.16 320 / 0.8)"></div>
           </div>
@@ -498,7 +580,7 @@
           
         </div>
 
-        <div style="font-size:9.5px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:rgba(240,237,230,0.45);text-align:center">Press a button to load its case notes</div>
+        <div class="cab-hint" style="font-size:9.5px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:rgba(240,237,230,0.45);text-align:center">Press a button to load its case notes</div>
         </div>
 
         <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
@@ -803,10 +885,10 @@
 
 <template data-arcade="0">
 
-          <div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-media" style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             
               <video class="shot-media" src="gifs/maleficus.mp4" poster="gifs/maleficus.poster.jpg" autoplay loop muted playsinline preload="none" tabindex="-1" aria-label="Maleficus gameplay capture, no audio" width="800" height="500"></video>
-              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
+              <div class="shot-scrim" style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
             
             
             
@@ -820,7 +902,7 @@
             </div>
           </div>
 
-          <div style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-notes" style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             <div style="font-family:Spectral,Georgia,serif;font-style:italic;font-size:17px;line-height:1.45;color:rgba(240,237,230,0.82);text-wrap:pretty">Multiplayer arena spell game. Refactored a coupled codebase into an event-driven architecture with strict UI/gameplay separation.</div>
             <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:13px">
               
@@ -855,11 +937,11 @@
         </template>
 <template data-arcade="1">
 
-          <div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-media" style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             
             
               <img class="shot-media" src="images/tikto.king-board.jpg" alt="Tikto King gameplay" loading="lazy" decoding="async" width="800" height="500">
-              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
+              <div class="shot-scrim" style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
             
             
             <div class="now-playing" style="position:absolute;top:20px;left:26px;display:flex;align-items:center;gap:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:oklch(0.8 0.13 320)">
@@ -872,7 +954,7 @@
             </div>
           </div>
 
-          <div style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-notes" style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             <div style="font-family:Spectral,Georgia,serif;font-style:italic;font-size:17px;line-height:1.45;color:rgba(240,237,230,0.82);text-wrap:pretty">Multi-game platform with a Minimax + Alpha-Beta pruning AI for Ultimate Tic-Tac-Toe.</div>
             <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:13px">
               
@@ -903,10 +985,10 @@
         </template>
 <template data-arcade="2">
 
-          <div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-media" style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             
               <video class="shot-media" src="gifs/saniboy.mp4" poster="gifs/saniboy.poster.jpg" autoplay loop muted playsinline preload="none" tabindex="-1" aria-label="The Amazing SaniBoy gameplay capture, no audio" width="800" height="500"></video>
-              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
+              <div class="shot-scrim" style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
             
             
             
@@ -920,7 +1002,7 @@
             </div>
           </div>
 
-          <div style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-notes" style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             <div style="font-family:Spectral,Georgia,serif;font-style:italic;font-size:17px;line-height:1.45;color:rgba(240,237,230,0.82);text-wrap:pretty">Mobile action game past 100,000 downloads at 4.7 stars. Owned UI, gameplay, and backend integration.</div>
             <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:13px">
               
@@ -957,11 +1039,11 @@
         </template>
 <template data-arcade="3">
 
-          <div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-media" style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             
             
               <img class="shot-media" src="images/draft_fever_bowl.jpg" alt="Draft Fever Bowl gameplay" loading="lazy" decoding="async" width="800" height="500">
-              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
+              <div class="shot-scrim" style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
             
             
             <div class="now-playing" style="position:absolute;top:20px;left:26px;display:flex;align-items:center;gap:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:oklch(0.8 0.13 320)">
@@ -974,7 +1056,7 @@
             </div>
           </div>
 
-          <div style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-notes" style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             <div style="font-family:Spectral,Georgia,serif;font-style:italic;font-size:17px;line-height:1.45;color:rgba(240,237,230,0.82);text-wrap:pretty">Football management sim. Delivered the full UI layer inside a 20+ person production.</div>
             <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:13px">
               
@@ -1005,11 +1087,11 @@
         </template>
 <template data-arcade="4">
 
-          <div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-media" style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             
             
               <img class="shot-media" src="images/plooshies.jpg" alt="The Plooshies gameplay" loading="lazy" decoding="async" width="800" height="500">
-              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
+              <div class="shot-scrim" style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
             
             
             <div class="now-playing" style="position:absolute;top:20px;left:26px;display:flex;align-items:center;gap:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:oklch(0.8 0.13 320)">
@@ -1022,7 +1104,7 @@
             </div>
           </div>
 
-          <div style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-notes" style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             <div style="font-family:Spectral,Georgia,serif;font-style:italic;font-size:17px;line-height:1.45;color:rgba(240,237,230,0.82);text-wrap:pretty">WebGL multiplayer party game. Photon Fusion netcode and in-browser performance work.</div>
             <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:13px">
               
@@ -1053,11 +1135,11 @@
         </template>
 <template data-arcade="5">
 
-          <div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-media" style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             
             
               <img class="shot-media" src="images/shells_and_tails.webp" alt="Shells And Tails gameplay" loading="lazy" decoding="async" width="800" height="500">
-              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
+              <div class="shot-scrim" style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
             
             
             <div class="now-playing" style="position:absolute;top:20px;left:26px;display:flex;align-items:center;gap:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:oklch(0.8 0.13 320)">
@@ -1070,7 +1152,7 @@
             </div>
           </div>
 
-          <div style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-notes" style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             <div style="font-family:Spectral,Georgia,serif;font-style:italic;font-size:17px;line-height:1.45;color:rgba(240,237,230,0.82);text-wrap:pretty">Four-player split-screen showdown four wildly different rule sets, one shared chaos.</div>
             <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:13px">
               
@@ -1101,10 +1183,10 @@
         </template>
 <template data-arcade="6">
 
-          <div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-media" style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             
               <video class="shot-media" src="gifs/alberts_ark.mp4" poster="gifs/alberts_ark.poster.jpg" autoplay loop muted playsinline preload="none" tabindex="-1" aria-label="Albert's Ark Idle gameplay capture, no audio" width="800" height="500"></video>
-              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
+              <div class="shot-scrim" style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>
             
             
             
@@ -1118,7 +1200,7 @@
             </div>
           </div>
 
-          <div style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
+          <div class="cab-notes" style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:boota 460ms cubic-bezier(.2,.8,.3,1)">
             <div style="font-family:Spectral,Georgia,serif;font-style:italic;font-size:17px;line-height:1.45;color:rgba(240,237,230,0.82);text-wrap:pretty">2D idle clicker. Core progression systems experience, levelling, currency through to release.</div>
             <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:13px">
               
@@ -1178,7 +1260,20 @@
     respectMotion(screen);
     for (var j = 0; j < n; j++) buttons[j].setAttribute("aria-pressed", j === i ? "true" : "false");
     open = i;
+    // The 3D cabinet listens for this: the panel it just cloned in carries the
+    // capture, and the tube has to be re-pointed at the new element. Announced
+    // rather than called directly so this script stays standalone.
+    document.dispatchEvent(new CustomEvent("arcade:change", { detail: { index: i } }));
   }
+
+  // The only handle the 3D cabinet gets on the selection. Its joysticks and
+  // buttons drive these buttons, so keyboard and pointer end up in one place
+  // and aria-pressed cannot drift from what the tube is showing.
+  window.__arcade = {
+    show: show,
+    count: buttons.length,
+    get index() { return open; },
+  };
 
   respectMotion(document);
 
@@ -1214,4 +1309,61 @@
 </script>
 
 
+
+<div id="a3d" aria-hidden="true"><canvas></canvas></div>
+<div id="a3d-src" aria-hidden="true"></div>
+<script>
+(function () {
+  var WIDE = "(min-width: 1180px)";
+
+  // Every gate below leaves the flat cabinet alone, which is correct but was
+  // also completely silent: "why is there no 3D cabinet" had no answer short
+  // of reading this file. Each bail now says which gate closed. One line, and
+  // only when the cabinet does NOT run.
+  function bail(why) {
+    if (window.console && console.info) console.info("[arcade3d] not running: " + why);
+  }
+
+  if (location.protocol === "file:") return bail(
+    "opened from the filesystem. ES modules need an http:// origin - run a " +
+    "local server (npm run serve) and open http://localhost:8000 instead."
+  );
+  if (location.search.indexOf("no3d") > -1) return bail("?no3d is in the URL");
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return bail(
+    "the system asks for reduced motion (Windows: Settings > Accessibility > " +
+    "Visual effects > Animation effects)"
+  );
+
+  // Probing for a context is the only honest test: a browser can advertise
+  // WebGL2 and still refuse one on a machine with no usable GPU.
+  var probe = document.createElement("canvas").getContext("webgl2");
+  if (!probe) return bail("this browser would not give up a WebGL2 context");
+  var kill = probe.getExtension("WEBGL_lose_context");
+  if (kill) kill.loseContext();
+
+  var live = null, pending = false, warnedNarrow = false;
+  function start() {
+    if (live || pending) return;
+    if (!matchMedia(WIDE).matches) {
+      if (!warnedNarrow) {
+        warnedNarrow = true;
+        bail("the window is " + innerWidth + "px wide; the cabinet needs 1180px");
+      }
+      return;
+    }
+    pending = true;
+    import("./js/arcade3d.js?v=694e51bb")
+      .then(function (m) { pending = false; live = m.default(); })
+      .catch(function (err) { pending = false; bail("the module failed to load - " + err); });
+  }
+  function stop() { if (live) { live.destroy(); live = null; } }
+
+  if (document.readyState === "complete") setTimeout(start, 150);
+  else addEventListener("load", function () { setTimeout(start, 150); });
+
+  addEventListener("resize", function () {
+    if (matchMedia(WIDE).matches) start(); else stop();
+  }, { passive: true });
+})();
+</script>
 </body></html>
