@@ -21,6 +21,7 @@
 // readable. index.html is the entire site.
 
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { extname } from "node:path";
 import { runInNewContext } from "node:vm";
 import { findBlock, createContext, renderTemplate } from "./prerender.mjs";
@@ -328,6 +329,86 @@ const CSS = `
        has to be pinned back to its start or the ticker reads as empty. */
     .ticker-track { transform: none !important; }
   }
+
+  /* ══ the 3D cabinet ══
+     Every rule here is scoped to html.a3d, which only arcade3d.js sets, and
+     only once a WebGL2 context is actually running. Nothing below applies to a
+     visitor without JS, without a GPU, on a phone, or with reduced motion on:
+     they get the flat cabinet, unchanged. */
+  /* opacity is written every frame by the scroll choreography, so there is
+     deliberately no transition here: one would smear behind the scroll. The
+     fade-in at boot is a ramp inside the render loop instead. */
+  #a3d {
+    position: fixed; inset: 0; z-index: 3;
+    opacity: 0; visibility: hidden;
+    /* The cabinet floats over the page for most of its travel, so it must
+       never eat a click. arcade3d.js hit-tests on window events instead. */
+    pointer-events: none;
+  }
+  .a3d #a3d { visibility: visible; }
+  #a3d canvas { display: block; width: 100%; height: 100%; }
+
+  /* Where the capture sits while the tube is showing it. On screen and at a
+     real size, because a display:none video stops decoding and the texture
+     freezes; fully transparent and behind the page, because nobody should see
+     it twice. */
+  #a3d-src {
+    position: fixed; left: 0; top: 0; z-index: -1;
+    width: 320px; height: 180px; overflow: hidden;
+    opacity: 0; pointer-events: none;
+  }
+  #a3d-src video, #a3d-src img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* The column the cabinet docks into for the length of the work section. */
+  .a3d-dock { display: none; }
+  .a3d .a3d-dock { display: block; grid-column: 1; grid-row: 1; min-height: 1px; }
+
+  /* The shell keeps its content and loses its chrome: the border, the gradient
+     and the drop shadow were standing in for a cabinet, and there is one now. */
+  .a3d .cab-shell {
+    display: grid;
+    /* The cabinet sizes itself off this track, so widening it zooms the
+       machine in. The case notes keep a comfortable measure either way. */
+    grid-template-columns: min(34vw, 460px) 1fr;
+    column-gap: 44px;
+    border: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    animation: none !important;
+  }
+  .a3d .cab-shell > *:not(.a3d-dock) { grid-column: 2; }
+
+  /* Each of these has a real counterpart on the machine now. */
+  .a3d .cab-marquee, .a3d .cab-1p, .a3d .shot-scrim { display: none !important; }
+
+  .a3d .cab-screenwrap {
+    margin-top: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
+  }
+
+  /* One column: the capture moved to the tube, so the left pane is reduced to
+     a title card and the case notes run the full width beneath it. */
+  .a3d .arcade-screen {
+    grid-template-columns: 1fr !important;
+    min-height: 0 !important;
+  }
+  .a3d .cab-media {
+    min-height: 0 !important;
+    padding: 22px 26px 18px !important;
+    gap: 10px !important;
+    border-bottom: 1px solid rgba(240, 237, 230, 0.1);
+  }
+  /* Absolute made sense over a video. Over a title card it would overlap it. */
+  .a3d .cab-media .now-playing { position: static !important; }
+  .a3d .cab-notes { border-left: 0 !important; overflow: visible !important; }
+  .a3d .no-footage {
+    position: static !important;
+    align-items: flex-start; padding: 4px 0;
+  }
 </style>
 `;
 html = edit("responsive-css", html, "</helmet>", CSS + "</helmet>");
@@ -555,8 +636,10 @@ const CAPTION = "font-size:9.5px;font-weight:600;letter-spacing:0.16em;text-tran
 // wrapped in a column flex box that takes the cell instead.
 html = edit("cabinet-hint-open", html, BTN_ROW,
   '<div style="display:flex;flex-direction:column;align-items:center;gap:14px">\n          ' + BTN_ROW);
+// Class-tagged: when the 3D cabinet boots, the sticks become real controls and
+// arcade3d.js rewrites this line to say so.
 html = edit("cabinet-hint-close", html, NEXT_CELL,
-  `<div style="${CAPTION};text-align:center">Press a button to load its case notes</div>\n` +
+  `<div class="cab-hint" style="${CAPTION};text-align:center">Press a button to load its case notes</div>\n` +
   `        </div>\n\n        ` + NEXT_CELL);
 
 html = edit("cabinet-hint-dedupe", html,
@@ -680,8 +763,10 @@ const PANEL = '<div style="position:relative;background-color:#17151E;background
 //
 // Stills still get an <img>: a project whose media is a .png/.jpg takes the
 // second branch, so mixing the two across projects costs nothing.
+// The scrim is class-tagged so the 3D cabinet can drop it: once the capture is
+// on the tube, the pane it darkened holds nothing but text.
 const OVERLAY =
-  '              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>\n';
+  '              <div class="shot-scrim" style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,13,17,0.10),rgba(14,13,17,0.86));pointer-events:none"></div>\n';
 
 html = edit("project-media", html, PANEL, PANEL + "\n" +
   '            <sc-if value="{{ active.vid }}">\n' +
@@ -709,6 +794,126 @@ if (oversized.length) {
     "  Re-encode to webm/mp4 (~800x500, 12-15fps, 6-10s) — usually 5-10x smaller.",
   ].join("\n");
 }
+
+// ══ 3D — the real arcade cabinet ══════════════════════════════════════════
+// js/arcade3d.js builds an actual cabinet in Three.js: extruded body, lit
+// marquee, a CRT running the project's own capture, two joysticks and six
+// buttons that switch titles. It travels with the scroll, from the right of
+// the hero, to the centre of the viewport at the work heading, to a docked
+// column on the left for the length of the section.
+//
+// It REPLACES the flat cabinet visually, but not structurally. The markup
+// below still renders, and still is the site under any of:
+//
+//   no JavaScript      the page is prerendered, so the work section is whole
+//   no WebGL2          the loader gives up before it imports anything
+//   narrow viewport    a 3D cabinet has nowhere to stand under 1180px
+//   reduced motion     a cabinet that flies down the page is exactly the
+//                      motion that setting exists to refuse
+//
+// So the transforms here only ADD hooks: classes for the stylesheet to reshape
+// under html.a3d, a dock column, and the mount points. Delete js/arcade3d.js
+// and the page is what it was.
+const A3D_SHELL = '<div data-reveal="1" style="position:relative;border:1px solid rgba(240,237,230,0.16);border-radius:26px 26px 8px 8px;background:linear-gradient(180deg,#1B1822 0%,#141219 46%,#100F14 100%);padding:26px 26px 30px;box-shadow:0 40px 90px rgba(0,0,0,0.55),inset 0 1px 0 rgba(240,237,230,0.09);animation:hum 5.5s ease-in-out infinite">';
+
+// The dock is a real grid track, not a margin: it is the only thing keeping
+// the machine off the case notes, so it has to survive a font change or a
+// longer project description without being re-tuned.
+html = edit("a3d-shell", html, A3D_SHELL,
+  A3D_SHELL.replace('<div data-reveal="1" style=', '<div data-reveal="1" class="cab-shell" style=') +
+  '\n\n      <div class="a3d-dock" aria-hidden="true"></div>');
+
+cls("a3d-marquee",
+  '<div style="position:relative;border-radius:14px 14px 4px 4px;background:linear-gradient(180deg,oklch(0.34 0.12 320) 0%,oklch(0.24 0.1 320) 100%);border:1px solid oklch(0.62 0.16 320 / 0.45);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px;overflow:hidden">',
+  "cab-marquee");
+cls("a3d-screenwrap",
+  '<div style="margin-top:22px;border-radius:20px;background:#08080B;border:1px solid rgba(240,237,230,0.1);padding:16px;box-shadow:inset 0 0 60px rgba(0,0,0,0.9)">',
+  "cab-screenwrap");
+cls("a3d-notes",
+  '<div style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:{{ active.anim }} 460ms cubic-bezier(.2,.8,.3,1)">',
+  "cab-notes");
+cls("a3d-1p",
+  '<div style="display:flex;flex-direction:column;align-items:center;gap:9px">',
+  "cab-1p");
+// PANEL is the media pane, already carrying the <video>/<img> the earlier
+// transform put in it. arcade3d.js moves that element onto the tube and leaves
+// the pane as the title card.
+html = edit("a3d-media", html, PANEL,
+  PANEL.replace("<div style=", '<div class="cab-media" style='));
+
+// The canvas and the capture holder go outside the design's markup entirely,
+// so a re-export cannot move them.
+// The module URL carries a hash of its own bytes. Without one, a browser with
+// no cache headers to go on falls back to heuristic freshness and can serve a
+// stale cabinet for minutes after a deploy; GitHub Pages sends no max-age.
+const A3D_SRC = "js/arcade3d.js";
+if (!existsSync(A3D_SRC)) throw new Error(`arcade3d: ${A3D_SRC} is missing.`);
+const A3D_HASH = createHash("sha256").update(readFileSync(A3D_SRC)).digest("hex").slice(0, 8);
+
+const A3D_MOUNT = `
+<div id="a3d" aria-hidden="true"><canvas></canvas></div>
+<div id="a3d-src" aria-hidden="true"></div>`;
+
+// Capability gate. Every branch that bails leaves the flat cabinet alone, and
+// the import is deliberately after load: nothing about the cabinet is allowed
+// to compete with first paint.
+const A3D_LOADER = `
+<script>
+(function () {
+  var WIDE = "(min-width: 1180px)";
+
+  // Every gate below leaves the flat cabinet alone, which is correct but was
+  // also completely silent: "why is there no 3D cabinet" had no answer short
+  // of reading this file. Each bail now says which gate closed. One line, and
+  // only when the cabinet does NOT run.
+  function bail(why) {
+    if (window.console && console.info) console.info("[arcade3d] not running: " + why);
+  }
+
+  if (location.protocol === "file:") return bail(
+    "opened from the filesystem. ES modules need an http:// origin - run a " +
+    "local server (npm run serve) and open http://localhost:8000 instead."
+  );
+  if (location.search.indexOf("no3d") > -1) return bail("?no3d is in the URL");
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return bail(
+    "the system asks for reduced motion (Windows: Settings > Accessibility > " +
+    "Visual effects > Animation effects)"
+  );
+
+  // Probing for a context is the only honest test: a browser can advertise
+  // WebGL2 and still refuse one on a machine with no usable GPU.
+  var probe = document.createElement("canvas").getContext("webgl2");
+  if (!probe) return bail("this browser would not give up a WebGL2 context");
+  var kill = probe.getExtension("WEBGL_lose_context");
+  if (kill) kill.loseContext();
+
+  var live = null, pending = false, warnedNarrow = false;
+  function start() {
+    if (live || pending) return;
+    if (!matchMedia(WIDE).matches) {
+      if (!warnedNarrow) {
+        warnedNarrow = true;
+        bail("the window is " + innerWidth + "px wide; the cabinet needs 1180px");
+      }
+      return;
+    }
+    pending = true;
+    import("./js/arcade3d.js?v=${A3D_HASH}")
+      .then(function (m) { pending = false; live = m.default(); })
+      .catch(function (err) { pending = false; bail("the module failed to load - " + err); });
+  }
+  function stop() { if (live) { live.destroy(); live = null; } }
+
+  if (document.readyState === "complete") setTimeout(start, 150);
+  else addEventListener("load", function () { setTimeout(start, 150); });
+
+  addEventListener("resize", function () {
+    if (matchMedia(WIDE).matches) start(); else stop();
+  }, { passive: true });
+})();
+</script>`;
+
+html = edit("a3d-mount", html, "</body>", A3D_MOUNT + A3D_LOADER + "\n</body>");
 
 // ══ TYPOGRAPHY — no em dashes ═════════════════════════════════════════════
 // Runs LAST, on the finished document, so every transform above can keep
@@ -812,7 +1017,20 @@ const RUNTIME_JS = `
     respectMotion(screen);
     for (var j = 0; j < n; j++) buttons[j].setAttribute("aria-pressed", j === i ? "true" : "false");
     open = i;
+    // The 3D cabinet listens for this: the panel it just cloned in carries the
+    // capture, and the tube has to be re-pointed at the new element. Announced
+    // rather than called directly so this script stays standalone.
+    document.dispatchEvent(new CustomEvent("arcade:change", { detail: { index: i } }));
   }
+
+  // The only handle the 3D cabinet gets on the selection. Its joysticks and
+  // buttons drive these buttons, so keyboard and pointer end up in one place
+  // and aria-pressed cannot drift from what the tube is showing.
+  window.__arcade = {
+    show: show,
+    count: buttons.length,
+    get index() { return open; },
+  };
 
   respectMotion(document);
 
