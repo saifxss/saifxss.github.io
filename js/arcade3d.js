@@ -824,6 +824,9 @@ export default function boot() {
   const marks = { a: 0, b: 0, c: 0, d: 0, e: 0, f: 0 };
   let dockCx = 0;
   let dockW = 0;
+  let dockDocY = 0;   // the dock band's middle, in document coordinates
+  let dockBandH = 0;
+  let stacked = false;
   let centreH = 0;
   let vw = 0;
   let vh = 0;
@@ -832,6 +835,7 @@ export default function boot() {
     vw = innerWidth;
     vh = innerHeight;
     settled = false; // re-seat the springs; a resize is not a movement
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, vw < 860 ? 1.4 : 1.75));
     renderer.setSize(vw, vh, false);
     camera.aspect = vw / vh;
     camera.updateProjectionMatrix();
@@ -842,6 +846,12 @@ export default function boot() {
     const dock = dockEl.getBoundingClientRect();
     dockCx = dock.left + dock.width / 2;
     dockW = dock.width;
+    dockDocY = dock.top + y + dock.height / 2;
+    dockBandH = dock.height;
+    // Which layout the stylesheet chose, read off the element rather than by
+    // repeating the breakpoint here. A track that spans the shell means there
+    // was no room beside the notes and the cabinet gets a band above them.
+    stacked = dock.width > shell.width * 0.8;
 
     const workTop = work.top + y;
     const shellTop = shell.top + y;
@@ -912,6 +922,26 @@ export default function boot() {
     (WIDTH * Math.cos(yaw) + DEPTH * Math.abs(Math.sin(yaw))) / HEIGHT;
 
   function keyframes() {
+    if (stacked) {
+      // No column to dock into, so the cabinet rides the page: its resting
+      // position is the band's own middle, which scrolls. Pinning it to the
+      // viewport at this width would park a full-height machine on top of the
+      // case notes.
+      //
+      // The hero appearance is dropped too. On a narrow page the headline
+      // already runs the full width, so there is nowhere beside it to stand -
+      // the machine fades up as the work section arrives instead.
+      const band = Math.min(dockBandH * 0.94, vh * 0.86);
+      const bandY = dockDocY - scrollY;
+      const beat = Math.min(vh * 0.82, (vw * 0.9) / spanPerHeight(CENTRE_YAW));
+      return [
+        { x: vw * 0.5, y: vh * 0.5, h: beat * 0.84, ry: CENTRE_YAW, rx: 0.02, op: 0 },
+        { x: vw * 0.5, y: vh * 0.5, h: beat, ry: CENTRE_YAW, rx: 0.02, op: 1 },
+        { x: dockCx, y: bandY, h: band, ry: 0.16, rx: 0.02, op: 1 },
+        { x: dockCx, y: bandY, h: band, ry: 0.16, rx: 0.02, op: 0 },
+      ];
+    }
+
     // Fill the column, and go as tall as the viewport allows. Cropping the
     // feet at the bottom of the frame is the point: it reads as standing in
     // the room rather than sitting on the page.
@@ -997,6 +1027,13 @@ export default function boot() {
   let dragFired = false;
   let cursorHeld = false;
 
+  // Touch is not a mouse with a shorter arm. A finger that lands on the
+  // cabinet is usually starting a scroll, and on a narrow page the machine
+  // fills most of the screen - so on a coarse pointer nothing is dragged,
+  // nothing calls preventDefault, and a control is worked by tapping it.
+  const coarse = matchMedia("(pointer: coarse)").matches;
+  let tapAt = null;
+
   function pick(ev) {
     ndc.x = (ev.clientX / vw) * 2 - 1;
     ndc.y = -(ev.clientY / vh) * 2 + 1;
@@ -1028,7 +1065,7 @@ export default function boot() {
       }
       return;
     }
-    if (opacity < 0.5) return;
+    if (coarse || opacity < 0.5) return;
     hovered = pick(ev);
     const want = !!hovered;
     if (want !== cursorHeld) {
@@ -1037,10 +1074,25 @@ export default function boot() {
     }
   }
 
+  /** Work whichever control was hit, without caring how it was reached. */
+  function fire(hit) {
+    const b = cab.buttons.find((x) => x.cap === hit);
+    if (b) b.press = 1;
+    const j = cab.joysticks.find((x) => x.ball === hit);
+    if (j) { j.target = 0.9; j.hold = 0.14; }
+    step(1);
+  }
+
   function onDown(ev) {
     if (ev.button !== 0 || opacity < 0.5) return;
     const hit = pick(ev);
     if (!hit) return;
+    if (coarse) {
+      // Decide on the way up: swallowing this gesture would stop the page
+      // scrolling under a cabinet that covers most of it.
+      tapAt = { x: ev.clientX, y: ev.clientY, hit: hit };
+      return;
+    }
     ev.preventDefault();
     if (hit.userData.hit === "stick") {
       dragging = cab.joysticks.find((j) => j.ball === hit);
@@ -1055,7 +1107,16 @@ export default function boot() {
     }
   }
 
-  function onUp() {
+  function onUp(ev) {
+    if (coarse) {
+      const tap = tapAt;
+      tapAt = null;
+      if (!tap || !ev) return;
+      // A finger that travelled was scrolling the page, not pressing a button.
+      if (Math.abs(ev.clientX - tap.x) + Math.abs(ev.clientY - tap.y) > 12) return;
+      fire(tap.hit);
+      return;
+    }
     if (!dragging) return;
     // A tap with no push still counts: nudge to the next title.
     if (!dragFired) step(1);
@@ -1170,6 +1231,15 @@ export default function boot() {
     pivot.rotation.y = cur.ry;
     pivot.rotation.x = cur.rx;
     cab.group.position.y = -HEIGHT / 2 + Math.sin(clock.t * 0.8) * 0.018;
+
+    // Stacked mode travels with the page, so the machine leaves the frame by
+    // itself rather than by fading. Once it is gone there is nothing to draw.
+    const halfPx = (cur.s * HEIGHT) / upp / 2;
+    const midPx = vh / 2 - cur.y / upp;
+    if (midPx + halfPx < -60 || midPx - halfPx > vh + 60) {
+      host.style.visibility = "hidden";
+      return;
+    }
 
     // The marquee tube. Fluorescents do not burn steady: mostly they do, and
     // then they stutter for a couple of frames. The product of three sines

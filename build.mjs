@@ -359,25 +359,45 @@ const CSS = `
   }
   #a3d-src video, #a3d-src img { width: 100%; height: 100%; object-fit: cover; }
 
-  /* The column the cabinet docks into for the length of the work section. */
+  /* Where the cabinet docks for the length of the work section. What shape
+     this is decides the whole layout, and arcade3d.js reads it back rather
+     than repeating the breakpoint: a narrow track means dock beside the notes,
+     a full-width one means the page had no room and the cabinet takes a band
+     above them instead. The CSS decides; the choreography follows. */
   .a3d-dock { display: none; }
-  .a3d .a3d-dock { display: block; grid-column: 1; grid-row: 1; min-height: 1px; }
+  .a3d .a3d-dock { display: block; min-height: 1px; }
 
   /* The shell keeps its content and loses its chrome: the border, the gradient
      and the drop shadow were standing in for a cabinet, and there is one now. */
   .a3d .cab-shell {
     display: grid;
-    /* The cabinet sizes itself off this track, so widening it zooms the
-       machine in. The case notes keep a comfortable measure either way. */
-    grid-template-columns: min(34vw, 460px) 1fr;
-    column-gap: 44px;
     border: 0 !important;
     background: none !important;
     box-shadow: none !important;
     padding: 0 !important;
     animation: none !important;
   }
-  .a3d .cab-shell > *:not(.a3d-dock) { grid-column: 2; }
+
+  /* Wide: the cabinet gets a column of its own and stays pinned to the
+     viewport while the case notes scroll past it. The machine sizes itself
+     off this track, so widening it zooms the machine in. */
+  @media (min-width: 860px) {
+    .a3d .cab-shell {
+      grid-template-columns: min(34vw, 460px) 1fr;
+      column-gap: 44px;
+    }
+    .a3d .a3d-dock { grid-column: 1; grid-row: 1; }
+    .a3d .cab-shell > *:not(.a3d-dock) { grid-column: 2; }
+  }
+
+  /* Narrow: there is no room beside the notes at any size that leaves them
+     readable, so the cabinet takes a band above them and rides the page
+     instead of staying pinned. Pinning it here would park a full-height
+     machine on top of the text the section exists to show. */
+  @media (max-width: 859px) {
+    .a3d .cab-shell { grid-template-columns: 1fr; row-gap: 20px; }
+    .a3d .a3d-dock { height: min(72vh, 560px); min-height: 300px; }
+  }
 
   /* Each of these has a real counterpart on the machine now. */
   .a3d .cab-marquee, .a3d .cab-1p, .a3d .shot-scrim { display: none !important; }
@@ -860,7 +880,10 @@ const A3D_MOUNT = `
 const A3D_LOADER = `
 <script>
 (function () {
-  var WIDE = "(min-width: 1180px)";
+  // The cabinet has a stacked layout now, so this is a floor rather than a
+  // desktop gate: below it there is no arrangement that leaves the case notes
+  // readable. 1180 used to live here, which is why most windows saw nothing.
+  var OK = "(min-width: 360px)";
 
   // Every gate below leaves the flat cabinet alone, which is correct but was
   // also completely silent: "why is there no 3D cabinet" had no answer short
@@ -879,6 +902,9 @@ const A3D_LOADER = `
     "the system asks for reduced motion (Windows: Settings > Accessibility > " +
     "Visual effects > Animation effects)"
   );
+  // ~750KB of Three.js over a metered connection, for decoration.
+  var net = navigator.connection;
+  if (net && net.saveData) return bail("the browser is in Save-Data mode");
 
   // Probing for a context is the only honest test: a browser can advertise
   // WebGL2 and still refuse one on a machine with no usable GPU.
@@ -890,10 +916,10 @@ const A3D_LOADER = `
   var live = null, pending = false, warnedNarrow = false;
   function start() {
     if (live || pending) return;
-    if (!matchMedia(WIDE).matches) {
+    if (!matchMedia(OK).matches) {
       if (!warnedNarrow) {
         warnedNarrow = true;
-        bail("the window is " + innerWidth + "px wide; the cabinet needs 1180px");
+        bail("the window is " + innerWidth + "px wide; the cabinet needs 360px");
       }
       return;
     }
@@ -908,7 +934,7 @@ const A3D_LOADER = `
   else addEventListener("load", function () { setTimeout(start, 150); });
 
   addEventListener("resize", function () {
-    if (matchMedia(WIDE).matches) start(); else stop();
+    if (matchMedia(OK).matches) start(); else stop();
   }, { passive: true });
 })();
 </script>`;
