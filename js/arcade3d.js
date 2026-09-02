@@ -7,10 +7,11 @@
 // canvas, that travels with the scroll:
 //
 //   hero            right of the headline, angled, idling
-//   work section    flies to the centre, as close to full height as the
-//                   heading leaves room for, and HOLDS there
-//   further down    fades out over half a screen of scrolling, handing the
-//                   section back to the panel underneath
+//   work section    ZOOMS IN on the screen and the control deck - the marquee
+//                   and the coin door crop out of frame - and HOLDS there
+//   below that      pulls back, shrinks, and parks in the bottom-left corner,
+//                   uncovering the panel it had been standing in front of
+//   section end     fades out
 //
 // It is an overlay, and it changes nothing about the page it sits on. That is
 // a deliberate reversal: an earlier version reshaped the flat cabinet and took
@@ -829,8 +830,7 @@ export default function boot() {
   // Everything the choreography needs in document coordinates, refreshed when
   // the layout changes rather than every frame — a scroll handler that reads
   // getBoundingClientRect on four elements is a layout thrash.
-  const marks = { a: 0, b: 0, c: 0, d: 0 };
-  let centreH = 0;
+  const marks = { a: 0, b: 0, c: 0, d: 0, e: 0, f: 0 };
   let vw = 0;
   let vh = 0;
 
@@ -848,46 +848,45 @@ export default function boot() {
     const shell = shellEl.getBoundingClientRect();
 
     const workTop = work.top + y;
+    const workBottom = work.bottom + y;
     const shellTop = shell.top + y;
 
-    // Three beats and an exit. a-b the cabinet flies in from the hero; b-c it
-    // holds at the centre of the work section at full size; c-d it fades,
-    // handing the section over to the panel underneath - which has kept its
-    // own capture all along, so nothing is lost when the machine goes. The
-    // fade is spread over more than half a screen of scrolling on purpose: it
-    // has to read as dissolving, not as being switched off.
-    marks.a = workTop - vh * 1.15;
-    marks.b = workTop - vh * 0.75;
-    marks.c = shellTop - vh * 0.45;
-    marks.d = shellTop + vh * 0.15;
+    // Five stops. a-b the machine flies in from the hero; b-c it holds ZOOMED,
+    // framing the screen and the control deck with the marquee and the coin
+    // door cropped away; c-d it pulls back and travels to the bottom left; d-e
+    // it sits there small, uncovering the panel it was standing in front of;
+    // e-f it goes with the section rather than riding on into the next one.
+    //
+    // The zoom is anchored on the cabinet block rather than on the section
+    // top: framed that tightly the machine is wider than the gap beside the
+    // work heading, so the hold has to begin after the heading has left the
+    // frame rather than fight it for the room. The later stops hang off the
+    // work section's BOTTOM, because the cabinet block is only ~820px tall,
+    // less than a viewport, and anchoring five stops to it collapses them.
+    marks.a = workTop - vh * 0.75;
+    marks.b = shellTop - vh * 0.02;
+    marks.c = shellTop + vh * 0.28;
+    marks.d = shellTop + vh * 0.52;
+    marks.e = workBottom - vh * 0.05;
+    marks.f = workBottom + vh * 0.2;
     // A short page, or a very tall viewport, can collapse these out of order.
+    marks.b = Math.max(marks.b, marks.a + 1);
     marks.c = Math.max(marks.c, marks.b + 1);
     marks.d = Math.max(marks.d, marks.c + 1);
+    marks.e = Math.max(marks.e, marks.d + 1);
+    marks.f = Math.max(marks.f, marks.e + 1);
 
-    // How big the centred beat gets: as much of the screen as there is, short
-    // of landing on the work heading. The gap between the h2 and its intro
-    // paragraph is measured rather than assumed, because the heading is fluid.
-    // Where they stack there is no gap to speak of, and the viewport takes over.
-    const head = document.querySelector("#work .section-head");
-    let half = vw * 0.43;
-    if (head) {
-      const heading = head.querySelector("h2");
-      const note = head.lastElementChild;
-      const leftEdge = heading ? heading.getBoundingClientRect().right : 0;
-      const rightEdge = note ? note.getBoundingClientRect().left : vw;
-      const gap = Math.min(vw / 2 - leftEdge, rightEdge - vw / 2) - 20;
-      half = gap > vw * 0.12 ? gap : vw * 0.43;
-    }
-    centreH = Math.max(vh * 0.62, Math.min(vh * 0.96, (half * 2) / spanPerHeight(CENTRE_YAW)));
   }
 
-  /** 0 at the hero, 1 arrived at the centre, 2 still there, 3 faded out. */
+  /** 0 at the hero, 1 zoomed on the controls, 2 parked bottom-left, 3 gone. */
   function stage() {
     const y = scrollY;
     if (y <= marks.a) return 0;
     if (y < marks.b) return clamp01((y - marks.a) / (marks.b - marks.a));
-    if (y < marks.c) return 1;                     // the hold, keyframes 1 and 2
-    if (y < marks.d) return 2 + clamp01((y - marks.c) / (marks.d - marks.c));
+    if (y < marks.c) return 1;
+    if (y < marks.d) return 1 + clamp01((y - marks.c) / (marks.d - marks.c));
+    if (y < marks.e) return 2;
+    if (y < marks.f) return 2 + clamp01((y - marks.e) / (marks.f - marks.e));
     return 3;
   }
 
@@ -904,26 +903,68 @@ export default function boot() {
   // Near enough face on to read as the machine presented to you, far enough
   // off it to keep a lit edge and not flatten into a sprite.
   const CENTRE_YAW = -0.07;
+  const CORNER_YAW = 0.34;
   const spanPerHeight = (yaw) =>
     (WIDTH * Math.cos(yaw) + DEPTH * Math.abs(Math.sin(yaw))) / HEIGHT;
 
+  // The band the zoomed beat frames, in cabinet units off the floor: from just
+  // under the deck's front edge (PROFILE[2] is at 0.97) to just over the top of
+  // the monitor bezel (PROFILE[7] at 2.80). The marquee above and the coin door
+  // below leave the frame entirely, which is what makes this read as moving IN
+  // on the machine rather than as the machine simply getting bigger.
+  const BAND_LOW = 0.92;
+  const BAND_HIGH = 2.86;
+
+  /**
+   * Frame a horizontal band of the cabinet instead of the whole machine.
+   *
+   * Returns what a keyframe needs. `h` is still the FULL cabinet height in
+   * pixels, because that is the unit the rest of the choreography works in - it
+   * is just solved backwards from how much room the band should fill. `y` then
+   * places the cabinet's middle so the BAND's middle lands on `atY`, which is
+   * what stops the zoom from drifting off centre as it tightens.
+   *
+   * Width is a constraint, not an afterthought: framed this tightly the band is
+   * wider than a phone, so whichever of the two limits binds first wins.
+   */
+  function frameBand(low, high, fillH, fillW, yaw, atY) {
+    const h = Math.min((fillH * HEIGHT) / (high - low), fillW / spanPerHeight(yaw));
+    return { h, y: atY + ((low + high) / 2 - HEIGHT / 2) * (h / HEIGHT) };
+  }
+
   function keyframes() {
-    // On a narrow page the headline already runs the full width, so there is
-    // nowhere beside it for the machine to stand: it fades up on approach
-    // instead of arriving from the hero.
     const narrow = vw < 860;
-    const centred = { x: vw * 0.5, y: vh * 0.52, h: centreH, ry: CENTRE_YAW, rx: 0.02, op: 1 };
+
+    // The zoom: vertically it takes most of the screen, horizontally it is
+    // allowed to run past where the work heading sits, because by the time
+    // this beat holds the heading has scrolled out of the frame.
+    const zoom = frameBand(
+      BAND_LOW, BAND_HIGH,
+      vh * (narrow ? 0.72 : 0.86),
+      vw * (narrow ? 0.94 : 0.62),
+      CENTRE_YAW, vh * 0.5
+    );
+
+    // The rest: the whole machine again, small, tucked INTO the bottom-left
+    // corner with a sliver hanging off the edge. This page has 44px of gutter,
+    // so a cabinet fully inside it would have to be either tiny or sitting on
+    // the copy; letting it bleed keeps it clear of the text and still reads as
+    // parked in the corner.
+    const cornerH = Math.min(vh * (narrow ? 0.26 : 0.32), narrow ? 190 : 260);
+    const cornerW = cornerH * spanPerHeight(CORNER_YAW);
+    const cornerX = cornerW * 0.3;
+    const cornerY = vh - (narrow ? 10 : 22) - cornerH / 2;
+
     return [
       narrow
-        ? { ...centred, h: centreH * 0.86, op: 0 }
+        // A narrow headline runs the full width, so there is nowhere beside it
+        // to stand: the machine fades up on approach instead.
+        ? { x: vw * 0.5, y: vh * 0.5, h: zoom.h * 0.7, ry: CENTRE_YAW, rx: 0.02, op: 0 }
         : { x: vw * 0.775, y: vh * 0.54, h: vh * 0.66, ry: -0.42, rx: 0.05, op: 1 },
-      centred,
-      centred,
-      // The exit. It drifts up and back a little and dims out rather than
-      // flying off: the fade is doing the work here, and a machine that bolts
-      // out of frame reads as a glitch. The flat panel is arriving underneath
-      // at the same time, carrying the same capture.
-      { x: vw * 0.5, y: vh * 0.46, h: centreH * 0.9, ry: CENTRE_YAW - 0.06, rx: 0.02, op: 0 },
+      { x: vw * 0.5, y: zoom.y, h: zoom.h, ry: CENTRE_YAW, rx: 0.02, op: 1 },
+      { x: cornerX, y: cornerY, h: cornerH, ry: CORNER_YAW, rx: 0.03, op: 1 },
+      // Out with the section: down a little, smaller, under a fade.
+      { x: cornerX, y: cornerY + vh * 0.12, h: cornerH * 0.88, ry: CORNER_YAW, rx: 0.03, op: 0 },
     ];
   }
 

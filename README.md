@@ -120,18 +120,30 @@ page with the scroll:
 
 ```
 hero            right of the headline, angled, idling
-work section    comes to the centre at as close to full height as the page
-                allows, and HOLDS there - the beat the machine is for
-further down    fades out over half a screen of scrolling
+work section    ZOOMS IN on the screen and the control deck and HOLDS
+below that      pulls back small into the bottom-left corner
+section end     fades out
 ```
 
-The centred stop is not sized by hand. It measures the gap the work heading
-leaves down the middle - the h2 on one side, its intro paragraph on the other -
-and takes as much of it as the viewport height allows, re-measured whenever the
-layout changes. That is how it comes out at **96% of the viewport** on both a
-1440x900 desktop and a 390x844 phone while still clearing the type either side.
-Where the heading stacks and there is no gap to speak of, the viewport width
-takes over.
+The zoom is a real dolly-in, not just a bigger cabinet: it frames a **band** of
+the machine - from under the deck's front edge to over the top of the monitor
+bezel - and lets the marquee and the coin door crop out of frame. `frameBand()`
+solves the full cabinet height backwards from how much room that band is
+supposed to fill, and places the machine so the BAND's middle sits at the
+viewport's middle, which is what stops a zoom from drifting off centre as it
+tightens.
+
+Width is a constraint there, not an afterthought. Framed that tightly the band
+is wider than a phone, so whichever limit binds first wins: on a 1440x900
+desktop the band takes **86% of the viewport height** at 543px wide, and on a
+390x844 phone it is width-bound at 367px, which works out at 62% of the height.
+
+Because the zoomed machine is wider than the gap beside the work heading, the
+hold is anchored on the **cabinet block** rather than on the section top - it
+begins once the heading has scrolled out of frame, instead of fighting it for
+the room. The later stops hang off the work section's bottom, because the
+cabinet block is only ~820px tall, less than a viewport, and anchoring five
+stops to it collapses them into each other.
 
 ### It is an overlay. The page underneath does not change.
 
@@ -218,7 +230,7 @@ Nothing here touches first paint. The module and Three.js are imported on
 be served a stale cabinet.
 
 ```
-js/arcade3d.js               50 KB   (17 KB gzipped)
+js/arcade3d.js               52 KB   (17 KB gzipped)
 vendor/three.*.min.js       733 KB  (184 KB gzipped)  pinned three@0.185.1
 ```
 
