@@ -111,7 +111,7 @@ in a visitor's browser.
 | Weight | ~210 KB of React + runtime removed; nothing to download before first paint |
 | Contact | Raw address hidden behind an "Email" label; LinkedIn + Resume added; aria-labels |
 | A11y | `lang="en"`, `:focus-visible` rings, `prefers-reduced-motion`, 44x44 touch targets |
-| 3D | Hooks for the Three.js cabinet: dock column, part classes, hashed module URL |
+| 3D | Hooks for the Three.js cabinet: two classes, mount points, hashed module URL |
 
 ## The 3D cabinet
 
@@ -120,37 +120,34 @@ page with the scroll:
 
 ```
 hero            right of the headline, angled, idling
-work heading    comes to the centre at full size and holds - the longest
-                beat in the sequence, and the one the machine is for
-the cabinet     docks into the reserved left column and stays
-past the work   sinks away
+work section    comes to the centre at as close to full height as the page
+                allows, and HOLDS there - the beat the machine is for
+further down    fades out over half a screen of scrolling
 ```
 
-Neither of the two stops is sized by hand. The docked cabinet measures the
-column reserved for it; the centred one measures the gap the work heading
-leaves down the middle, between the h2 on one side and its intro paragraph on
-the other. Both then take as much of it as the viewport height allows. That is
-why the machine can be nearly a full viewport tall without ever landing on
-type: the heading is fluid, so the gap is measured rather than assumed, and it
-is re-measured whenever the layout changes.
+The centred stop is not sized by hand. It measures the gap the work heading
+leaves down the middle - the h2 on one side, its intro paragraph on the other -
+and takes as much of it as the viewport height allows, re-measured whenever the
+layout changes. That is how it comes out at **96% of the viewport** on both a
+1440x900 desktop and a 390x844 phone while still clearing the type either side.
+Where the heading stacks and there is no gap to speak of, the viewport width
+takes over.
 
-### Narrow screens
+### It is an overlay. The page underneath does not change.
 
-Below 860px there is no column arrangement that leaves the case notes
-readable, so the layout changes shape rather than switching the cabinet off:
+This is a deliberate reversal of how it used to work. An earlier version
+reshaped the flat cabinet under `html.a3d` - hid its marquee, collapsed its
+screen to a title card - and MOVED the capture out of the panel and onto the
+tube, which was fine while the machine stayed docked beside it for the whole
+section. It is not fine now that the machine dissolves partway down: the panel
+would be left holding an empty frame the moment it went.
 
-```
->= 860px   cabinet docked in its own column, PINNED to the viewport while
-           the case notes scroll past it
-<  860px   cabinet takes a full-width band above the notes and RIDES the
-           page with them; the hero appearance is dropped, because a narrow
-           headline already runs the full width
-```
-
-`arcade3d.js` does not repeat that breakpoint. It measures the dock element
-and infers the layout from its shape - a track that spans the shell means the
-stylesheet had no room to put it beside anything. The CSS decides; the
-choreography follows.
+So the tube runs **its own copy** of the capture, and the markup underneath is
+untouched. A still costs nothing extra - only the URL is needed - and a video
+costs one more decode of a file the browser has already cached, paid only
+while the machine is on screen and paused the moment it fades. The build's
+transforms now only ADD two classes and the mount points; delete
+`js/arcade3d.js` and the page is what it was.
 
 Touch is handled as touch, not as a mouse with a shorter arm. On a coarse
 pointer nothing is dragged and nothing calls `preventDefault`, because a
@@ -187,12 +184,11 @@ much each one earns:
   travelled. Driving the row while the sticks sat still made the cabinet look
   like a screen someone else was operating.
 
-**It replaces the flat cabinet's look, not its markup.** The CSS cabinet still
-renders and is still the accessible control surface: the seven title buttons
-are the same real `<button>`s, and the joysticks drive them rather than
-bypassing them. The stylesheet reshapes that markup only under `html.a3d`,
-which `arcade3d.js` sets once a WebGL2 context is actually running. Any of
-these and the visitor gets today's page, unchanged:
+**Nothing here is load-bearing.** The flat cabinet still renders, still holds
+its own capture, and is still the accessible control surface: the seven title
+buttons are the same real `<button>`s, and the joysticks drive them rather
+than bypassing them. Any of these and the visitor simply never sees the
+machine, with nothing else different about the page:
 
 | Condition | Why |
 |---|---|
@@ -222,7 +218,7 @@ Nothing here touches first paint. The module and Three.js are imported on
 be served a stale cabinet.
 
 ```
-js/arcade3d.js               51 KB   (17 KB gzipped)
+js/arcade3d.js               50 KB   (17 KB gzipped)
 vendor/three.*.min.js       733 KB  (184 KB gzipped)  pinned three@0.185.1
 ```
 

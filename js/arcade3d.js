@@ -3,18 +3,27 @@
 // The work section ships a flat CSS cabinet: a marquee, a CRT pane holding the
 // gameplay capture, and a row of title buttons. That markup is the site with
 // JavaScript off, and it is still the accessible control surface. This module
-// takes over its LOOK: a procedurally built cabinet, rendered on one fixed
-// canvas, that travels with the scroll.
+// adds a procedurally built cabinet over the top of it, rendered on one fixed
+// canvas, that travels with the scroll:
 //
 //   hero            right of the headline, angled, idling
-//   work heading    flies to the centre of the viewport and holds
-//   the cabinet     docks into the reserved left column and stays there
-//   past the work   sinks away
+//   work section    flies to the centre, as close to full height as the
+//                   heading leaves room for, and HOLDS there
+//   further down    fades out over half a screen of scrolling, handing the
+//                   section back to the panel underneath
+//
+// It is an overlay, and it changes nothing about the page it sits on. That is
+// a deliberate reversal: an earlier version reshaped the flat cabinet and took
+// its capture for the tube, which only worked while the machine stayed docked
+// beside it for the whole section. Now that it dissolves partway down, the
+// panel has to still be whole when it goes - so the tube runs its own copy of
+// the capture, and the markup underneath is untouched.
 //
 // Nothing here is loaded unless the page can use it: the loader in index.html
-// gates on viewport width, prefers-reduced-motion and WebGL2 before it imports
-// this file. Until it does, the flat cabinet is what the visitor sees, so a
-// failure anywhere below is a missing flourish rather than a missing section.
+// gates on WebGL2, prefers-reduced-motion, Save-Data and a 360px floor before
+// it imports this file. Until it does, the flat cabinet is what the visitor
+// sees, so a failure anywhere below is a missing flourish, never a missing
+// section.
 //
 // The geometry is one extruded side profile plus attachments. No model file, no
 // loader, no textures on the wire: the marquee art, side art and coin door are
@@ -776,11 +785,10 @@ function buildCabinet() {
 export default function boot() {
   const workEl = document.getElementById("work");
   const shellEl = document.querySelector(".cab-shell");
-  const dockEl = document.querySelector(".a3d-dock");
   const screenEl = document.querySelector(".arcade-screen");
   const host = document.getElementById("a3d");
   const src = document.getElementById("a3d-src");
-  if (!workEl || !shellEl || !dockEl || !screenEl || !host || !src) return null;
+  if (!workEl || !shellEl || !screenEl || !host || !src) return null;
 
   const canvas = host.querySelector("canvas");
   let renderer;
@@ -821,12 +829,7 @@ export default function boot() {
   // Everything the choreography needs in document coordinates, refreshed when
   // the layout changes rather than every frame — a scroll handler that reads
   // getBoundingClientRect on four elements is a layout thrash.
-  const marks = { a: 0, b: 0, c: 0, d: 0, e: 0, f: 0 };
-  let dockCx = 0;
-  let dockW = 0;
-  let dockDocY = 0;   // the dock band's middle, in document coordinates
-  let dockBandH = 0;
-  let stacked = false;
+  const marks = { a: 0, b: 0, c: 0, d: 0 };
   let centreH = 0;
   let vw = 0;
   let vh = 0;
@@ -843,64 +846,48 @@ export default function boot() {
     const y = scrollY;
     const work = workEl.getBoundingClientRect();
     const shell = shellEl.getBoundingClientRect();
-    const dock = dockEl.getBoundingClientRect();
-    dockCx = dock.left + dock.width / 2;
-    dockW = dock.width;
-    dockDocY = dock.top + y + dock.height / 2;
-    dockBandH = dock.height;
-    // Which layout the stylesheet chose, read off the element rather than by
-    // repeating the breakpoint here. A track that spans the shell means there
-    // was no room beside the notes and the cabinet gets a band above them.
-    stacked = dock.width > shell.width * 0.8;
 
     const workTop = work.top + y;
     const shellTop = shell.top + y;
-    const shellBottom = shell.bottom + y;
 
-    // The six scroll positions the stages hang off. Between a-b the cabinet
-    // flies to the centre; b-c it holds there; c-d it docks left; d-e it holds
-    // docked; e-f it sinks away.
-    // The centred beat starts earlier than it used to, which lengthens the
-    // plateau rather than the approach: it is a stop, not a place the cabinet
-    // passes through on its way left.
+    // Three beats and an exit. a-b the cabinet flies in from the hero; b-c it
+    // holds at the centre of the work section at full size; c-d it fades,
+    // handing the section over to the panel underneath - which has kept its
+    // own capture all along, so nothing is lost when the machine goes. The
+    // fade is spread over more than half a screen of scrolling on purpose: it
+    // has to read as dissolving, not as being switched off.
     marks.a = workTop - vh * 1.15;
     marks.b = workTop - vh * 0.75;
-    marks.c = shellTop - vh * 0.55;
-    marks.d = shellTop - vh * 0.05;
-    marks.e = shellBottom - vh * 0.55;
-    marks.f = shellBottom - vh * 0.05;
+    marks.c = shellTop - vh * 0.45;
+    marks.d = shellTop + vh * 0.15;
     // A short page, or a very tall viewport, can collapse these out of order.
     marks.c = Math.max(marks.c, marks.b + 1);
     marks.d = Math.max(marks.d, marks.c + 1);
 
-    // How big the centred beat can be. The dock sizes itself off its column;
-    // this sizes itself off the gap the work heading leaves down the middle -
-    // the h2 on one side, its intro paragraph on the other - so the machine
-    // comes as far forward as the page allows without ever landing on type.
-    // Measured, not guessed: the heading is fluid and the gap moves with it.
+    // How big the centred beat gets: as much of the screen as there is, short
+    // of landing on the work heading. The gap between the h2 and its intro
+    // paragraph is measured rather than assumed, because the heading is fluid.
+    // Where they stack there is no gap to speak of, and the viewport takes over.
     const head = document.querySelector("#work .section-head");
-    let half = vw * 0.5;
+    let half = vw * 0.43;
     if (head) {
       const heading = head.querySelector("h2");
       const note = head.lastElementChild;
       const leftEdge = heading ? heading.getBoundingClientRect().right : 0;
       const rightEdge = note ? note.getBoundingClientRect().left : vw;
-      half = Math.min(vw / 2 - leftEdge, rightEdge - vw / 2) - 34;
+      const gap = Math.min(vw / 2 - leftEdge, rightEdge - vw / 2) - 20;
+      half = gap > vw * 0.12 ? gap : vw * 0.43;
     }
-    centreH = Math.max(vh * 0.62, Math.min(vh * 0.94, (half * 2) / spanPerHeight(CENTRE_YAW)));
-    marks.e = Math.max(marks.e, marks.d + 1);
-    marks.f = Math.max(marks.f, marks.e + 1);
+    centreH = Math.max(vh * 0.62, Math.min(vh * 0.96, (half * 2) / spanPerHeight(CENTRE_YAW)));
   }
 
-  /** 0 at the hero, 1 centred, 2 docked, 3 gone. */
+  /** 0 at the hero, 1 arrived at the centre, 2 still there, 3 faded out. */
   function stage() {
     const y = scrollY;
     if (y <= marks.a) return 0;
     if (y < marks.b) return clamp01((y - marks.a) / (marks.b - marks.a));
-    if (y < marks.c) return 1;
-    if (y < marks.d) return 1 + clamp01((y - marks.c) / (marks.d - marks.c));
-    if (y < marks.e) return 2;
-    if (y < marks.f) return 2 + clamp01((y - marks.e) / (marks.f - marks.e));
+    if (y < marks.c) return 1;                     // the hold, keyframes 1 and 2
+    if (y < marks.d) return 2 + clamp01((y - marks.c) / (marks.d - marks.c));
     return 3;
   }
 
@@ -911,10 +898,9 @@ export default function boot() {
   const unitsPerPx = () => (2 * CAM_Z * Math.tan((FOV * Math.PI) / 360)) / vh;
 
   // How wide the cabinet renders for a given height, at a given yaw: the body
-  // is WIDTH across and D deep, so turning it presents some of both. The dock
-  // keyframe sizes itself off this so the machine fills its column without
-  // ever growing into the case notes.
-  const DOCK_YAW = 0.3;
+  // is WIDTH across and DEPTH deep, so turning it presents some of both. The
+  // centred beat sizes itself off this, so it can take the whole screen
+  // without ever growing into the work heading either side of it.
   // Near enough face on to read as the machine presented to you, far enough
   // off it to keep a lit edge and not flatten into a sprite.
   const CENTRE_YAW = -0.07;
@@ -922,36 +908,22 @@ export default function boot() {
     (WIDTH * Math.cos(yaw) + DEPTH * Math.abs(Math.sin(yaw))) / HEIGHT;
 
   function keyframes() {
-    if (stacked) {
-      // No column to dock into, so the cabinet rides the page: its resting
-      // position is the band's own middle, which scrolls. Pinning it to the
-      // viewport at this width would park a full-height machine on top of the
-      // case notes.
-      //
-      // The hero appearance is dropped too. On a narrow page the headline
-      // already runs the full width, so there is nowhere beside it to stand -
-      // the machine fades up as the work section arrives instead.
-      const band = Math.min(dockBandH * 0.94, vh * 0.86);
-      const bandY = dockDocY - scrollY;
-      const beat = Math.min(vh * 0.82, (vw * 0.9) / spanPerHeight(CENTRE_YAW));
-      return [
-        { x: vw * 0.5, y: vh * 0.5, h: beat * 0.84, ry: CENTRE_YAW, rx: 0.02, op: 0 },
-        { x: vw * 0.5, y: vh * 0.5, h: beat, ry: CENTRE_YAW, rx: 0.02, op: 1 },
-        { x: dockCx, y: bandY, h: band, ry: 0.16, rx: 0.02, op: 1 },
-        { x: dockCx, y: bandY, h: band, ry: 0.16, rx: 0.02, op: 0 },
-      ];
-    }
-
-    // Fill the column, and go as tall as the viewport allows. Cropping the
-    // feet at the bottom of the frame is the point: it reads as standing in
-    // the room rather than sitting on the page.
-    const dockH = Math.min(vh * 0.94, (dockW * 0.98) / spanPerHeight(DOCK_YAW));
+    // On a narrow page the headline already runs the full width, so there is
+    // nowhere beside it for the machine to stand: it fades up on approach
+    // instead of arriving from the hero.
+    const narrow = vw < 860;
+    const centred = { x: vw * 0.5, y: vh * 0.52, h: centreH, ry: CENTRE_YAW, rx: 0.02, op: 1 };
     return [
-      { x: vw * 0.775, y: vh * 0.54, h: vh * 0.66, ry: -0.42, rx: 0.05, op: 1 },
-      { x: vw * 0.5, y: vh * 0.53, h: centreH, ry: CENTRE_YAW, rx: 0.02, op: 1 },
-      // Sits low enough that the marquee clears the sticky nav bar.
-      { x: dockCx, y: vh * 0.55, h: dockH, ry: DOCK_YAW, rx: 0.03, op: 1 },
-      { x: dockCx - vw * 0.04, y: vh * 1.05, h: dockH * 0.92, ry: 0.55, rx: 0.02, op: 0 },
+      narrow
+        ? { ...centred, h: centreH * 0.86, op: 0 }
+        : { x: vw * 0.775, y: vh * 0.54, h: vh * 0.66, ry: -0.42, rx: 0.05, op: 1 },
+      centred,
+      centred,
+      // The exit. It drifts up and back a little and dims out rather than
+      // flying off: the fade is doing the work here, and a machine that bolts
+      // out of frame reads as a glitch. The flat panel is arriving underneath
+      // at the same time, carrying the same capture.
+      { x: vw * 0.5, y: vh * 0.46, h: centreH * 0.9, ry: CENTRE_YAW - 0.06, rx: 0.02, op: 0 },
     ];
   }
 
@@ -967,12 +939,14 @@ export default function boot() {
   }
 
   /**
-   * Take whatever the flat panel just rendered and put it on the tube.
+   * Put whatever the flat panel is showing onto the tube.
    *
-   * The element is MOVED, not copied: a <video> that is display:none stops
-   * decoding in some engines, and a second copy would decode the same file
-   * twice. It lands in #a3d-src, which is on-screen and sized but fully
-   * transparent, so the browser keeps feeding frames and nobody sees it.
+   * A COPY, never the element itself. The cabinet fades out partway down the
+   * work section now, so the panel underneath has to keep its own capture:
+   * taking the element would leave the page holding an empty frame the moment
+   * the machine dissolved. A still needs no element at all - only the URL -
+   * and a video costs one extra decode of a file the browser already has
+   * cached, paid only while the machine is actually on screen.
    */
   function syncMedia() {
     releaseMedia();
@@ -983,20 +957,26 @@ export default function boot() {
       cab.screenUniforms.uHasMap.value = 0; // NDA title: the shader shows bars
       return;
     }
-    src.replaceChildren(el);
-    mediaEl = el;
 
     if (el.tagName === "VIDEO") {
-      mediaTex = new THREE.VideoTexture(el);
+      // #a3d-src is on screen and sized but fully transparent: a display:none
+      // video stops decoding in some engines and the texture freezes with it.
+      const feed = document.createElement("video");
+      feed.muted = true;
+      feed.loop = true;
+      feed.playsInline = true;
+      feed.preload = "auto";
+      if (el.poster) feed.poster = el.poster;
+      feed.src = el.currentSrc || el.getAttribute("src");
+      src.replaceChildren(feed);
+      mediaEl = feed;
+
+      mediaTex = new THREE.VideoTexture(feed);
       const aspect = () => {
-        if (el.videoWidth) cab.screenUniforms.uMediaAspect.value = el.videoWidth / el.videoHeight;
+        if (feed.videoWidth) cab.screenUniforms.uMediaAspect.value = feed.videoWidth / feed.videoHeight;
       };
       aspect();
-      el.addEventListener("loadedmetadata", aspect, { once: true });
-      // preload="none" means the inactive panels never loaded; the clone that
-      // just landed here has to be told to start.
-      const play = el.play();
-      if (play && play.catch) play.catch(() => {});
+      feed.addEventListener("loadedmetadata", aspect, { once: true });
     } else {
       mediaTex = new THREE.TextureLoader().load(el.currentSrc || el.src, (t) => {
         if (t.image) cab.screenUniforms.uMediaAspect.value = t.image.width / t.image.height;
@@ -1193,6 +1173,22 @@ export default function boot() {
     boot = Math.min(1, boot + dt * 2);
     opacity = lerp(A.op, B.op, f) * smooth(boot);
     host.style.opacity = opacity.toFixed(3);
+
+    // The tube's copy of the capture is a second decode of a file the page is
+    // already playing. Worth it while the machine is up, pure waste once it
+    // has dissolved. This sits ABOVE the bail below on purpose: past that
+    // return nothing runs, and a hidden copy would decode for the rest of the
+    // visit.
+    if (mediaEl && mediaEl.tagName === "VIDEO") {
+      const wanted = opacity > 0.06;
+      if (wanted && mediaEl.paused) {
+        const play = mediaEl.play();
+        if (play && play.catch) play.catch(() => {});
+      } else if (!wanted && !mediaEl.paused) {
+        mediaEl.pause();
+      }
+    }
+
     if (opacity < 0.004) {
       // Parked past the work section: hold the frame, skip the draw.
       host.style.visibility = "hidden";
@@ -1231,15 +1227,6 @@ export default function boot() {
     pivot.rotation.y = cur.ry;
     pivot.rotation.x = cur.rx;
     cab.group.position.y = -HEIGHT / 2 + Math.sin(clock.t * 0.8) * 0.018;
-
-    // Stacked mode travels with the page, so the machine leaves the frame by
-    // itself rather than by fading. Once it is gone there is nothing to draw.
-    const halfPx = (cur.s * HEIGHT) / upp / 2;
-    const midPx = vh / 2 - cur.y / upp;
-    if (midPx + halfPx < -60 || midPx - halfPx > vh + 60) {
-      host.style.visibility = "hidden";
-      return;
-    }
 
     // The marquee tube. Fluorescents do not burn steady: mostly they do, and
     // then they stutter for a couple of frames. The product of three sines
@@ -1307,8 +1294,6 @@ export default function boot() {
 
   // Say out loud that the sticks work — the caption under the button row was
   // written for a page where the only controls were those buttons.
-  const hint = document.querySelector(".cab-hint");
-  if (hint) hint.textContent = "Push a joystick, or press a button, to load its case notes";
 
   requestAnimationFrame(frame);
 
@@ -1325,8 +1310,6 @@ export default function boot() {
       removeEventListener("pointerup", onUp);
       removeEventListener("pointercancel", onUp);
       ro.disconnect();
-      // Hand the capture back to the flat panel before the cabinet goes.
-      if (mediaEl) screenEl.querySelector(".cab-media")?.prepend(mediaEl);
       releaseMedia();
       scene.traverse((o) => {
         if (o.geometry) o.geometry.dispose();
@@ -1337,7 +1320,6 @@ export default function boot() {
         }
       });
       renderer.dispose();
-      if (hint) hint.textContent = "Press a button to load its case notes";
     },
   };
 }
