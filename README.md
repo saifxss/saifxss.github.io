@@ -145,6 +145,22 @@ the room. The later stops hang off the work section's bottom, because the
 cabinet block is only ~820px tall, less than a viewport, and anchoring five
 stops to it collapses them into each other.
 
+At that size two things on the machine become readable, so they carry real
+content rather than decoration. The bezel under the tube is a title card: the
+project name lit like a marquee, and under a hairline rule the platform, the
+year and the position in the reel. All three are read off the panel below
+rather than kept in a list here, so they cannot drift from what the section
+says. And the control deck carries a brushed-steel instruction plate -
+engraved lettering, screws at the corners - saying what the joysticks and
+buttons are for.
+
+The corner rest then runs past the projects and through the section after
+them, so the machine stays with you for about 1500px of scrolling rather than
+being dismissed the moment the work ends. Where it parks is measured, not
+fixed: it sits clear of the copy where the gutter allows (44px on the desktop)
+and never hides more than about half of itself where it does not. A phone has
+20px of gutter, so there the machine is simply made smaller instead.
+
 ### It is an overlay. The page underneath does not change.
 
 This is a deliberate reversal of how it used to work. An earlier version
@@ -230,7 +246,7 @@ Nothing here touches first paint. The module and Three.js are imported on
 be served a stale cabinet.
 
 ```
-js/arcade3d.js               52 KB   (17 KB gzipped)
+js/arcade3d.js               58 KB   (19 KB gzipped)
 vendor/three.*.min.js       733 KB  (184 KB gzipped)  pinned three@0.185.1
 ```
 

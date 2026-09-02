@@ -340,6 +340,92 @@ function poolTexture() {
   });
 }
 
+/**
+ * The instruction plate, the way a cabinet tells you what the controls do.
+ *
+ * Brushed steel rather than another printed panel: it is the one part of the
+ * machine that is supposed to look bolted on afterwards, and metal reads that
+ * way instantly next to painted wood. The lettering is engraved rather than
+ * drawn - a light line under a dark one is all it takes to look cut in.
+ */
+function instructionTagTexture() {
+  return canvasTexture(1024, 168, (g, w, h) => {
+    const steel = g.createLinearGradient(0, 0, 0, h);
+    steel.addColorStop(0, "#ced2da");
+    steel.addColorStop(0.42, "#9aa0ab");
+    steel.addColorStop(0.58, "#868c98");
+    steel.addColorStop(1, "#bcc2cc");
+    g.fillStyle = steel;
+    g.fillRect(0, 0, w, h);
+
+    // Brushing. Deterministic-ish scatter, drawn once at boot.
+    g.globalAlpha = 0.14;
+    for (let i = 0; i < 300; i++) {
+      const y = Math.random() * h;
+      g.strokeStyle = Math.random() > 0.5 ? "#ffffff" : "#666c77";
+      g.lineWidth = Math.random() * 1.7;
+      g.beginPath();
+      g.moveTo(0, y);
+      g.lineTo(w, y);
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+
+    // Pressed edge.
+    g.strokeStyle = "rgba(255,255,255,0.5)";
+    g.lineWidth = 5;
+    g.strokeRect(4, 4, w - 8, h - 8);
+    g.strokeStyle = "rgba(38,42,50,0.45)";
+    g.lineWidth = 3;
+    g.strokeRect(10, 10, w - 20, h - 20);
+
+    // Engraved lettering: the highlight sits one pixel BELOW the dark, which
+    // is what makes a cut look cut rather than embossed.
+    const label = "PUSH TO SELECT";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.font = "700 58px ui-monospace, Menlo, monospace";
+    g.letterSpacing = "11px";
+    g.fillStyle = "rgba(255,255,255,0.55)";
+    g.fillText(label, w / 2, h / 2 + 3);
+    g.fillStyle = "#2b2f38";
+    g.fillText(label, w / 2, h / 2);
+
+    // Direction arrows, drawn as paths so no font has to own the glyphs.
+    const arrow = (cx, dir) => {
+      const sz = 26;
+      for (const [dy, fill] of [[3, "rgba(255,255,255,0.55)"], [0, "#2b2f38"]]) {
+        g.fillStyle = fill;
+        g.beginPath();
+        g.moveTo(cx + dir * sz, h / 2 - sz + dy);
+        g.lineTo(cx + dir * sz, h / 2 + sz + dy);
+        g.lineTo(cx - dir * sz * 0.8, h / 2 + dy);
+        g.closePath();
+        g.fill();
+      }
+    };
+    arrow(w * 0.11, 1);
+    arrow(w * 0.89, -1);
+
+    // Screws, one per corner.
+    for (const [x, y] of [[46, 40], [w - 46, 40], [46, h - 40], [w - 46, h - 40]]) {
+      const r = g.createRadialGradient(x - 3, y - 3, 1, x, y, 15);
+      r.addColorStop(0, "#e6e9ee");
+      r.addColorStop(1, "#6f757f");
+      g.fillStyle = r;
+      g.beginPath();
+      g.arc(x, y, 14, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = "rgba(35,38,45,0.8)";
+      g.lineWidth = 3.5;
+      g.beginPath();
+      g.moveTo(x - 8, y - 4);
+      g.lineTo(x + 8, y + 4);
+      g.stroke();
+    }
+  });
+}
+
 /** A soft radial disc, used additively for every light bloom in the scene. */
 function glowTexture() {
   return canvasTexture(128, 128, (g, w) => {
@@ -593,35 +679,54 @@ function buildCabinet() {
   screenLight.position.set(0, glassAt.y - 0.4, glassAt.z + 0.95);
   group.add(screenLight);
 
-  // The bezel under the glass is where a cabinet carries its instruction card.
-  // This one carries the title the tube is running, redrawn on every switch.
+  // The bezel under the glass is where a cabinet carries its title card. The
+  // zoomed beat puts this at reading size, so it carries the credits too:
+  // the title lit like a marquee, and under a hairline rule the platform, the
+  // year and the position in the reel, in the same register as the page's own
+  // badges. All of it comes off the panel below, so it cannot drift from what
+  // the section says.
   const stripCanvas = document.createElement("canvas");
   stripCanvas.width = 1024;
-  stripCanvas.height = 96;
+  stripCanvas.height = 168;
   const stripTex = new THREE.CanvasTexture(stripCanvas);
   stripTex.colorSpace = THREE.SRGBColorSpace;
-  const setTitle = (text) => {
+  const setTitle = (text, meta) => {
     const g = stripCanvas.getContext("2d");
     const w = stripCanvas.width;
     const h = stripCanvas.height;
     g.fillStyle = "#0a0910";
     g.fillRect(0, 0, w, h);
+
     g.textAlign = "center";
     g.textBaseline = "middle";
-    g.font = "700 44px ui-monospace, Menlo, monospace";
+    g.font = "700 46px ui-monospace, Menlo, monospace";
     g.letterSpacing = "9px";
     g.shadowColor = hex(MAGENTA);
     g.shadowBlur = 26;
     g.fillStyle = hex(MAGENTA_HI);
-    g.fillText((text || "select title").toUpperCase(), w / 2, h / 2 + 2);
+    g.fillText((text || "select title").toUpperCase(), w / 2, 54);
     g.shadowBlur = 0;
+
+    if (meta) {
+      g.strokeStyle = "rgba(214,140,230,0.30)";
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(w * 0.22, 92);
+      g.lineTo(w * 0.78, 92);
+      g.stroke();
+
+      g.font = "600 30px ui-monospace, Menlo, monospace";
+      g.letterSpacing = "7px";
+      g.fillStyle = "rgba(240,237,230,0.62)";
+      g.fillText(meta.toUpperCase(), w / 2, 128);
+    }
     stripTex.needsUpdate = true;
   };
-  setTitle("");
+  setTitle("", "");
 
   const stripAt = onProfile(BEZEL_SEG, 0.075);
   const strip = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.94, 0.088),
+    new THREE.PlaneGeometry(0.94, 0.155),
     new THREE.MeshBasicMaterial({ map: stripTex, toneMapped: false })
   );
   strip.position.set(0, stripAt.y, stripAt.z + LIFT + 0.004);
@@ -660,6 +765,21 @@ function buildCabinet() {
   deckPlate.position.set(0, plateAt.y, plateAt.z);
   deckPlate.rotation.x = -deckFace;
   group.add(deckPlate);
+  // Screwed to the front strip of the deck, ahead of the joystick bases -
+  // which sit from about 0.22 along it, so this clears them.
+  const tag = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.66, 0.108),
+    new THREE.MeshStandardMaterial({
+      map: instructionTagTexture(),
+      roughness: 0.34,
+      metalness: 0.72,
+    })
+  );
+  const tagAt = onDeck(0.13, 0.012);
+  tag.position.set(0, tagAt.y, tagAt.z);
+  tag.rotation.x = -deckFace;
+  group.add(tag);
+
   const joysticks = [];
   const buttons = [];
 
@@ -785,6 +905,10 @@ function buildCabinet() {
 
 export default function boot() {
   const workEl = document.getElementById("work");
+  // Where the corner rest gives out. The section after the projects, so the
+  // machine keeps you company past them; the work section's own end is the
+  // fallback if the page is ever reordered.
+  const restEl = document.getElementById("experience");
   const shellEl = document.querySelector(".cab-shell");
   const screenEl = document.querySelector(".arcade-screen");
   const host = document.getElementById("a3d");
@@ -831,6 +955,7 @@ export default function boot() {
   // the layout changes rather than every frame — a scroll handler that reads
   // getBoundingClientRect on four elements is a layout thrash.
   const marks = { a: 0, b: 0, c: 0, d: 0, e: 0, f: 0 };
+  let contentLeft = 0; // where the page's copy starts, for the corner rest
   let vw = 0;
   let vh = 0;
 
@@ -846,10 +971,12 @@ export default function boot() {
     const y = scrollY;
     const work = workEl.getBoundingClientRect();
     const shell = shellEl.getBoundingClientRect();
+    const afterEl = restEl && restEl.getBoundingClientRect();
 
     const workTop = work.top + y;
     const workBottom = work.bottom + y;
     const shellTop = shell.top + y;
+    contentLeft = shell.left;
 
     // Five stops. a-b the machine flies in from the hero; b-c it holds ZOOMED,
     // framing the screen and the control deck with the marquee and the coin
@@ -867,8 +994,13 @@ export default function boot() {
     marks.b = shellTop - vh * 0.02;
     marks.c = shellTop + vh * 0.28;
     marks.d = shellTop + vh * 0.52;
-    marks.e = workBottom - vh * 0.05;
-    marks.f = workBottom + vh * 0.2;
+    // The corner rest runs past the work section and through whatever follows
+    // it, so the machine stays with you for a good stretch of scrolling
+    // instead of being dismissed the moment the projects end. It is small and
+    // tucked into the gutter by then, so it costs the page very little.
+    const restEnd = afterEl ? afterEl.bottom + y : workBottom + vh * 0.6;
+    marks.e = restEnd - vh * 0.55;
+    marks.f = restEnd - vh * 0.05;
     // A short page, or a very tall viewport, can collapse these out of order.
     marks.b = Math.max(marks.b, marks.a + 1);
     marks.c = Math.max(marks.c, marks.b + 1);
@@ -950,9 +1082,14 @@ export default function boot() {
     // so a cabinet fully inside it would have to be either tiny or sitting on
     // the copy; letting it bleed keeps it clear of the text and still reads as
     // parked in the corner.
-    const cornerH = Math.min(vh * (narrow ? 0.26 : 0.32), narrow ? 190 : 260);
+    // Smaller on a phone: there is 20px of gutter there against 44 on the
+    // desktop, so the rule below cannot buy it any room and size has to.
+    const cornerH = Math.min(vh * (narrow ? 0.2 : 0.32), narrow ? 150 : 250);
     const cornerW = cornerH * spanPerHeight(CORNER_YAW);
-    const cornerX = cornerW * 0.3;
+    // Sit clear of the copy where the gutter allows it, and never hide more
+    // than about half the machine when it does not. Measured off the content
+    // edge rather than guessed, because that edge moves with the viewport.
+    const cornerX = Math.max(cornerW * 0.06, contentLeft - 8 - cornerW / 2);
     const cornerY = vh - (narrow ? 10 : 22) - cornerH / 2;
 
     return [
@@ -971,6 +1108,26 @@ export default function boot() {
   // ── the flat cabinet's media, on the tube ──
   let mediaTex = null;
   let mediaEl = null;
+
+  /**
+   * The credits line for the info plate: platform, year, position in the reel.
+   *
+   * Read off the panel rather than kept in a list here, so it cannot drift
+   * from what the section says. The badges are the only spans in the media
+   * pane carrying a border, which is what separates them from the blinking
+   * "now playing" dot next to them.
+   */
+  function panelMeta() {
+    const pane = screenEl.querySelector(".cab-media");
+    const badges = pane
+      ? [...pane.querySelectorAll('span[style*="border:1px solid"]')].map((b) => b.textContent.trim())
+      : [];
+    const a = api();
+    if (a && a.count > 1) {
+      badges.push(String(a.index + 1).padStart(2, "0") + " / " + String(a.count).padStart(2, "0"));
+    }
+    return badges.join("  \u00b7  ");
+  }
 
   function releaseMedia() {
     if (mediaTex) mediaTex.dispose();
@@ -992,7 +1149,7 @@ export default function boot() {
   function syncMedia() {
     releaseMedia();
     const label = document.querySelector('.cab-btn[aria-pressed="true"] .cab-label');
-    cab.setTitle(label ? label.textContent.trim() : "");
+    cab.setTitle(label ? label.textContent.trim() : "", panelMeta());
     const el = screenEl.querySelector(".shot-media");
     if (!el) {
       cab.screenUniforms.uHasMap.value = 0; // NDA title: the shader shows bars
