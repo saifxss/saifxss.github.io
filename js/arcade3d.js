@@ -67,6 +67,10 @@ const DEPTH = 0.92; // PROFILE's deepest point, front to back
 // Where things sit on the profile, as a fraction along the named segment.
 const DECK = { a: 2, b: 3 }; // PROFILE[2] -> PROFILE[3], the deck surface
 const BEZEL_SEG = { a: 6, b: 7 }; // PROFILE[6] -> PROFILE[7], the monitor face
+// PROFILE[5] -> PROFILE[6], the overhang under the monitor. Near enough
+// vertical to read head-on, and the only blank face left on the front of the
+// machine - which makes it the place for the case notes.
+const OVERHANG = { a: 5, b: 6 };
 
 // The control panel, as one table. The buttons and the legend printed under
 // them are both built from this, so a cap can never end up sitting over the
@@ -271,9 +275,9 @@ function deckArtTexture(labels) {
     g.fillStyle = bg;
     g.fillRect(0, 0, w, h);
 
-    g.strokeStyle = "rgba(175,98,193,0.42)";
-    g.lineWidth = 10;
-    g.strokeRect(30, 26, w - 60, h - 52);
+    g.strokeStyle = "rgba(175,98,193,0.22)";
+    g.lineWidth = 7;
+    g.strokeRect(34, 30, w - 68, h - 60);
 
     g.textAlign = "center";
     g.textBaseline = "middle";
@@ -285,8 +289,8 @@ function deckArtTexture(labels) {
     for (const b of labels) {
       g.beginPath();
       g.arc(cx(b.x), cy(b.s), 104, 0, Math.PI * 2);
-      g.strokeStyle = "rgba(214,140,230,0.34)";
-      g.lineWidth = 5;
+      g.strokeStyle = "rgba(214,140,230,0.2)";
+      g.lineWidth = 4;
       g.stroke();
 
       const above = b.s > 0.55;
@@ -1135,6 +1139,85 @@ function buildCabinet() {
   };
   setTitle("", "");
 
+  // ── case notes, under the screen ──
+  // Redrawn on every switch, like the title above it. The bezel had no room
+  // left - the glass runs down to within a hair of the title strip - so this
+  // takes the overhang below it, which was blank and faces the viewer almost
+  // square on.
+  const noteCanvas = document.createElement("canvas");
+  noteCanvas.width = 2048;
+  noteCanvas.height = 430;
+  const noteTex = new THREE.CanvasTexture(noteCanvas);
+  noteTex.colorSpace = THREE.SRGBColorSpace;
+
+  const setDetails = (desc, bullets) => {
+    const g = noteCanvas.getContext("2d");
+    const w = noteCanvas.width;
+    const h = noteCanvas.height;
+    g.fillStyle = "#14121a";
+    g.fillRect(0, 0, w, h);
+
+    g.strokeStyle = "rgba(214,140,230,0.22)";
+    g.lineWidth = 4;
+    g.beginPath();
+    g.moveTo(60, 14);
+    g.lineTo(w - 60, 14);
+    g.stroke();
+
+    g.textAlign = "left";
+    g.textBaseline = "middle";
+
+    // Wrap to the panel rather than trusting a line to fit: these are real
+    // sentences off the page, not strings written to length.
+    const wrap = (text, font, maxw) => {
+      g.font = font;
+      const out = [];
+      let line = "";
+      for (const word of text.split(" ")) {
+        const next = line ? line + " " + word : word;
+        if (g.measureText(next).width > maxw && line) {
+          out.push(line);
+          line = word;
+        } else line = next;
+      }
+      if (line) out.push(line);
+      return out;
+    };
+
+    let y = 70;
+    const descFont = "500 52px Spectral, Georgia, serif";
+    for (const line of wrap(desc || "", descFont, w - 150).slice(0, 2)) {
+      g.font = descFont;
+      g.fillStyle = "rgba(240,237,230,0.9)";
+      g.fillText(line, 75, y);
+      y += 62;
+    }
+
+    y += 14;
+    const bFont = "500 40px ui-monospace, Menlo, monospace";
+    for (const b of (bullets || []).slice(0, 2)) {
+      const lines = wrap(b, bFont, w - 200);
+      g.fillStyle = hex(MAGENTA_HI);
+      g.fillRect(75, y - 12, 8, 24);
+      g.font = bFont;
+      g.fillStyle = "rgba(240,237,230,0.62)";
+      g.fillText(lines[0] + (lines.length > 1 ? "..." : ""), 108, y);
+      y += 52;
+      if (y > h - 30) break;
+    }
+    noteTex.needsUpdate = true;
+  };
+  setDetails("", []);
+
+  const noteAt = onProfile(OVERHANG, 0.5);
+  const notes = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.1, 0.231),
+    new THREE.MeshBasicMaterial({ map: noteTex, toneMapped: false })
+  );
+  notes.position.set(0, noteAt.y, noteAt.z + LIFT);
+  notes.rotation.x = -noteAt.tilt;
+  group.add(notes);
+
   const stripAt = onProfile(BEZEL_SEG, 0.075);
   const strip = new THREE.Mesh(
     new THREE.PlaneGeometry(0.94, 0.155),
@@ -1183,14 +1266,14 @@ function buildCabinet() {
   // Screwed to the front strip of the deck, ahead of the joystick bases -
   // which sit from about 0.22 along it, so this clears them.
   const tag = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.62, 0.111),
+    new THREE.PlaneGeometry(0.58, 0.098),
     new THREE.MeshStandardMaterial({
       map: instructionPlateTexture(),
       roughness: 0.34,
       metalness: 0.72,
     })
   );
-  const tagAt = onDeck(0.15, 0.012);
+  const tagAt = onDeck(0.175, 0.012);
   tag.position.set(-0.2, tagAt.y, tagAt.z);
   tag.rotation.x = -deckFace;
   group.add(tag);
@@ -1328,6 +1411,10 @@ function buildCabinet() {
   );
   inside.position.set(0, 0.92, -(DEPTH + LIFT * 0.4));
   inside.rotation.y = Math.PI;
+  // The compartment closes the door too. Once the door has swung clear, the
+  // click that would shut it lands here instead - so it opened and then would
+  // not shut, which is not a door.
+  inside.userData.hit = "door";
   group.add(inside);
 
   // ── the ground ──
@@ -1364,7 +1451,7 @@ function buildCabinet() {
   aura.position.set(0, 1.9, -1.4);
   group.add(aura);
 
-  return { group, screen, screenUniforms, screenGlow, joysticks, buttons, marquee, marqueeGlow, pool, doorHinge, setTitle };
+  return { group, screen, screenUniforms, screenGlow, joysticks, buttons, marquee, marqueeGlow, pool, doorHinge, setTitle, setDetails };
 }
 
 // ── module ─────────────────────────────────────────────────────────────────
@@ -1624,6 +1711,18 @@ export default function boot() {
    * pane carrying a border, which is what separates them from the blinking
    * "now playing" dot next to them.
    */
+  /**
+   * The active title's write-up, read off the panel the page already renders.
+   * The first paragraph is the description; the list under it is the detail.
+   */
+  function panelNotes() {
+    const box = screenEl.querySelector(".cab-notes");
+    if (!box) return { desc: "", bullets: [] };
+    const desc = (box.firstElementChild && box.firstElementChild.textContent || "").trim();
+    const bullets = [...box.querySelectorAll("li")].map((li) => li.textContent.trim());
+    return { desc, bullets };
+  }
+
   function panelMeta() {
     const pane = screenEl.querySelector(".cab-media");
     const badges = pane
@@ -1657,6 +1756,8 @@ export default function boot() {
     releaseMedia();
     const label = document.querySelector('.cab-btn[aria-pressed="true"] .cab-label');
     cab.setTitle(label ? label.textContent.trim() : "", panelMeta());
+    const note = panelNotes();
+    cab.setDetails(note.desc, note.bullets);
     const el = screenEl.querySelector(".shot-media");
     if (!el) {
       cab.screenUniforms.uHasMap.value = 0; // NDA title: the shader shows bars
@@ -2165,7 +2266,7 @@ export default function boot() {
 
     // The door swings on a spring like the sticks do, so it has some weight
     // to it rather than snapping between two states.
-    const doorTarget = doorOpen ? -2.1 : 0;
+    const doorTarget = doorOpen ? -1.55 : 0;
     doorVel += (doorTarget - doorAngle) * 26 * dt;
     doorVel *= Math.pow(0.0022, dt);
     doorAngle += doorVel * dt;

@@ -405,9 +405,35 @@ const CSS = `
   }
   .a3d .cab-media .shot-media,
   .a3d .cab-media .no-footage { display: none !important; }
-  /* Absolute made sense over a capture. Over a title card it would overlap. */
-  .a3d .cab-media .now-playing { position: static !important; }
-  .a3d .cab-notes { border-left: 0 !important; overflow: visible !important; }
+
+  /* The old flat panel is off the page now: the machine carries the title, the
+     credits and the case notes itself. What it does NOT do is delete them.
+     They are clipped out of sight rather than display:none, which keeps them
+     in the accessibility tree and in the markup a crawler reads - the content
+     is the portfolio, and a canvas is the one place nothing can get at it.
+
+     The title buttons come back the moment they are tabbed to. A keyboard user
+     losing the only visible control is a real regression; a sighted mouse user
+     never sees them because the machine's own panel is right there. */
+  .a3d .cab-media,
+  .a3d .cab-notes,
+  .a3d .arcade-controls {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0 !important;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0 !important;
+  }
+  .a3d .arcade-controls:focus-within {
+    position: static !important;
+    width: auto; height: auto;
+    margin: 0; padding: 26px 0 0 !important;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
 </style>
 `;
 html = edit("responsive-css", html, "</helmet>", CSS + "</helmet>");
