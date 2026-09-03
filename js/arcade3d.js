@@ -184,11 +184,11 @@ function sideArtTexture() {
     kick.addColorStop(1, "rgba(0,0,0,0.42)");
     g.fillStyle = kick;
     g.fillRect(0, h * 0.86, w, h * 0.14);
-    for (let i = 0; i < 26; i++) {
-      const y = h * (0.82 + Math.random() * 0.17);
+    for (let i = 0; i < 20; i++) {
+      const y = h * (0.86 + Math.random() * 0.13);
       const x = Math.random() * w;
-      const len = 12 + Math.random() * 70;
-      g.strokeStyle = "rgba(240,237,230," + (0.03 + Math.random() * 0.07).toFixed(3) + ")";
+      const len = 12 + Math.random() * 60;
+      g.strokeStyle = "rgba(240,237,230," + (0.02 + Math.random() * 0.04).toFixed(3) + ")";
       g.lineWidth = 1 + Math.random() * 3;
       g.beginPath();
       g.moveTo(x, y);
@@ -460,43 +460,38 @@ function instructionTagTexture() {
 }
 
 /**
- * Wear, as a roughness map.
+ * The cabinet's surface, as a roughness map.
  *
- * Every surface on this machine was perfectly uniform, which is most of what
- * makes a render read as a render: a real cabinet has hand grease around the
- * controls, dust settled in the corners, and polish worn through where people
- * lean on it. One noise map on roughness breaks the specular up enough to kill
- * that, and costs nothing on the wire because it is drawn here.
+ * An arcade cabinet is laminated board, and laminate has a fine directional
+ * grain. That is what this draws: full-height strokes at very low contrast, so
+ * the specular breaks up the way a real panel does under a light.
  *
- * Roughness is sampled from the green channel and is data, not colour, so this
- * one texture opts out of the sRGB transform the others want.
+ * The grain runs the FULL height of the tile on purpose. A previous version
+ * scattered soft blotches instead and tiled them, and because the blotches
+ * crossed the tile edges every seam showed up as a horizontal smear across the
+ * bezel - seven evenly spaced ones, which reads as dirt, not as a material.
+ * Strokes that span the tile cannot produce that seam, and the map is used at
+ * repeat 1 anyway so there is nothing to tile.
+ *
+ * Roughness is data, not colour, so this one texture opts out of the sRGB
+ * transform the others want.
  */
-function wearTexture() {
+function grainTexture() {
   const tex = canvasTexture(512, 512, (g, w, h) => {
-    g.fillStyle = "#b0b0b0";
+    g.fillStyle = "#9c9c9c";
     g.fillRect(0, 0, w, h);
-
-    // Broad blotches. Grime and polish arrive in patches, never per-pixel.
-    for (let i = 0; i < 110; i++) {
+    for (let i = 0; i < 520; i++) {
+      const v = Math.round(140 + Math.random() * 74);
+      g.strokeStyle = "rgba(" + v + "," + v + "," + v + ",0.09)";
+      g.lineWidth = 0.6 + Math.random() * 2.2;
       const x = Math.random() * w;
-      const y = Math.random() * h;
-      const r = 16 + Math.random() * 96;
-      const v = Math.random() > 0.5 ? 255 : 74;
-      const blot = g.createRadialGradient(x, y, 0, x, y, r);
-      blot.addColorStop(0, "rgba(" + v + "," + v + "," + v + ",0.20)");
-      blot.addColorStop(1, "rgba(" + v + "," + v + "," + v + ",0)");
-      g.fillStyle = blot;
-      g.fillRect(x - r, y - r, r * 2, r * 2);
-    }
-
-    // Dust.
-    for (let i = 0; i < 4200; i++) {
-      g.fillStyle = Math.random() > 0.5 ? "rgba(255,255,255,0.055)" : "rgba(52,52,52,0.055)";
-      g.fillRect(Math.random() * w, Math.random() * h, 1.6, 1.6);
+      g.beginPath();
+      g.moveTo(x, 0);
+      g.lineTo(x, h);
+      g.stroke();
     }
   });
   tex.colorSpace = THREE.NoColorSpace;
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   return tex;
 }
 
@@ -593,14 +588,23 @@ const SCREEN_FRAG = `
   void main() {
     // Barrel distortion, to match the bulge the vertex shader put in the glass.
     vec2 c = vUv - 0.5;
-    vec2 uv = vUv + c * dot(c, c) * 0.07;
+    vec2 uv = clamp(vUv + c * dot(c, c) * 0.07, 0.0, 1.0);
 
-    vec3 col;
-    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+    // The faceplate is a rounded rectangle, tested on the UNDISTORTED
+    // coordinates. Testing the barrel-warped ones against a plain box was the
+    // bug that made the picture an octagon: the warp pushes the corners out
+    // furthest, so they fell outside the box first and got cut on the
+    // diagonal. A superellipse is both the correct shape for a tube and
+    // immune to that.
+    vec2 q = abs(c) * 2.0;
+    float plate = pow(q.x, 8.0) + pow(q.y, 8.0);
+    if (plate > 1.0) {
       // Past the edge of the tube: the inside of the bezel.
       gl_FragColor = vec4(0.004, 0.004, 0.006, 1.0);
       return;
     }
+
+    vec3 col;
 
     if (uHasMap > 0.5) {
       // Cover-crop: fill the glass, centre the overflow.
@@ -614,7 +618,7 @@ const SCREEN_FRAG = `
       col.r = texture2D(uMap, m + vec2(sep, 0.0)).r;
       col.g = texture2D(uMap, m).g;
       col.b = texture2D(uMap, m - vec2(sep, 0.0)).b;
-      col *= 1.08;
+      col = clamp((col - 0.5) * 1.22 + 0.5, 0.0, 1.0) * 1.06;
     } else {
       // No capture for this title (NDA): drifting colour bars and static, the
       // way a cabinet with nothing in the slot actually looks.
@@ -627,12 +631,22 @@ const SCREEN_FRAG = `
       col *= 0.55;
     }
 
-    // Aperture grille.
-    col *= 0.88 + 0.12 * sin(vUv.y * 240.0);
-    // The slow bright band every tube has.
-    col += 0.03 * smoothstep(0.97, 1.0, fract(vUv.y * 0.5 - uTime * 0.05));
-    // Phosphor falls off toward the corners.
-    col *= 1.0 - 0.42 * dot(c, c) * 2.2;
+    // Aperture grille. Faded out wherever a stripe would land on less than a
+    // pixel, because at the sizes this cabinet travels through, a fixed
+    // frequency turns into moire the moment it out-runs the sampling.
+    float grilleHz = 210.0;
+    float perPixel = fwidth(vUv.y) * grilleHz;
+    col *= mix(1.0, 0.9 + 0.1 * sin(vUv.y * grilleHz), clamp(1.4 - perPixel, 0.0, 1.0));
+    // The slow bright band every tube has. A gaussian, not a smoothstep: the
+    // step had a hard leading edge that froze into a visible seam across the
+    // picture in any still frame.
+    float band = fract(vUv.y * 0.5 - uTime * 0.05);
+    col += 0.03 * exp(-pow((band - 0.5) * 6.0, 2.0));
+
+    // Phosphor falls off toward the corners - gently. At its old strength it
+    // took the corners to half brightness, and against the faceplate mask that
+    // read as though the picture had been cut off on the diagonal.
+    col *= 1.0 - 0.2 * dot(c, c) * 2.2;
 
     // A title change: the picture rolls once and the beam over-drives.
     float roll = smoothstep(0.0, 1.0, uSwitch);
@@ -645,7 +659,10 @@ const SCREEN_FRAG = `
     // broad and one tight, sliding with the viewing angle.
     float d = vUv.x + (1.0 - vUv.y) * 0.7 - 0.75 + vOff * 0.85;
     float sheen = exp(-d * d * 9.0) * 0.55 + exp(-(d - 0.34) * (d - 0.34) * 46.0) * 0.35;
-    col += sheen * 0.1 * vec3(0.82, 0.86, 1.0);
+    col += sheen * 0.055 * vec3(0.82, 0.86, 1.0);
+
+    // The phosphor stops before the faceplate does.
+    col *= 1.0 - smoothstep(0.88, 1.0, plate) * 0.85;
 
     col *= uTint;
     gl_FragColor = vec4(col, 1.0);
@@ -683,19 +700,16 @@ function buildCabinet() {
   // Group 1 is everything the extrusion swept: front, back, deck, bezel.
   const art = sideArtTexture();
   art.repeat.set(1 / DEPTH, 1 / HEIGHT);
-  // One map, two repeats: the side panels are large and flat so the pattern
-  // has to be broken up more there than on the front, where the eye is closer.
-  const sideWear = wearTexture();
-  sideWear.repeat.set(2, 2);
-  const faceWear = wearTexture();
-  faceWear.repeat.set(3, 7);
+  // One grain map, used at repeat 1 on both materials: nothing tiles, so
+  // nothing can seam.
+  const grain = grainTexture();
 
   const body = new THREE.Mesh(bodyGeo, [
     new THREE.MeshStandardMaterial({
-      map: art, roughnessMap: sideWear, roughness: 0.62, metalness: 0.0,
+      map: art, roughnessMap: grain, roughness: 0.6, metalness: 0.0,
     }),
     new THREE.MeshStandardMaterial({
-      color: SHELL, roughnessMap: faceWear, roughness: 0.5, metalness: 0.35,
+      color: SHELL, roughnessMap: grain, roughness: 0.52, metalness: 0.22,
     }),
   ]);
   group.add(body);
@@ -1028,15 +1042,24 @@ export default function boot() {
   pivot.add(cab.group);
   scene.add(pivot);
 
-  scene.add(new THREE.AmbientLight(0x3a3348, 3.4));
-  const key = new THREE.DirectionalLight(0xfff2e6, 3.1);
-  key.position.set(2.6, 4.2, 5.0);
+  scene.add(new THREE.AmbientLight(0x3a3348, 2.9));
+
+  // Three lights, each doing one job. The key sits high and well off to the
+  // side so the front face, the side panel and the sloped deck all catch a
+  // different amount of it - that separation is what gives the box its shape,
+  // and it was missing while the key sat nearly head-on.
+  const key = new THREE.DirectionalLight(0xfff2e6, 4.2);
+  key.position.set(4.4, 5.2, 3.6);
   scene.add(key);
-  const rim = new THREE.DirectionalLight(MAGENTA_HI, 3.2);
-  rim.position.set(-3.4, 1.6, -2.4);
+
+  // The magenta edge that ties the machine to the page's accent.
+  const rim = new THREE.DirectionalLight(MAGENTA_HI, 3.4);
+  rim.position.set(-3.8, 1.8, -2.2);
   scene.add(rim);
-  const fill = new THREE.DirectionalLight(0x6f7cff, 1.0);
-  fill.position.set(-2.0, -1.4, 3.0);
+
+  // Bounce, so the kickplate is not a black hole under the deck.
+  const fill = new THREE.DirectionalLight(0x8f9bff, 1.5);
+  fill.position.set(-2.4, -1.8, 3.2);
   scene.add(fill);
 
   // ── layout measurement ──
@@ -1484,7 +1507,7 @@ export default function boot() {
   const preMat = new THREE.ShaderMaterial({
     vertexShader: QUAD_VERT,
     fragmentShader: PREFILTER,
-    uniforms: { uTex: { value: null }, uThreshold: { value: 0.52 } },
+    uniforms: { uTex: { value: null }, uThreshold: { value: 0.68 } },
     depthTest: false,
     depthWrite: false,
   });
@@ -1734,7 +1757,7 @@ export default function boot() {
     // the glow on their own as before.
     if (glowOn) renderGlow();
     renderer.render(scene, camera);
-    if (glowOn) compositeGlow(1.15 * opacity);
+    if (glowOn) compositeGlow(1.0 * opacity);
   }
 
   // ── wire up ──

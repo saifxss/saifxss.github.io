@@ -224,11 +224,17 @@ much each one earns:
   about 120 lines and no new files. It costs ~6ms a frame on a desktop and is
   switched off below 860px and on coarse pointers, where the sprites carry the
   glow as before.
-- **Nothing is factory-new.** A noise map on roughness breaks up the specular
+- **Nothing is factory-new.** A grain map on roughness breaks up the specular
   so the body stops looking injection-moulded; the side art is scuffed pale and
   grimed dark across its bottom foot, where a real cabinet takes every shoe in
   the arcade; and the control deck is worn faintly pale where two players'
   hands would have rested. All drawn at boot, so none of it is on the wire.
+
+  The grain runs the full height of its tile and is used at repeat 1. The first
+  version scattered soft blotches and tiled them 3x7, and because the blotches
+  crossed the tile edges, every seam showed as a horizontal smear across the
+  bezel - seven evenly spaced ones, which reads as dirt rather than as a
+  material. Strokes that span the tile cannot produce that seam.
 
 **Nothing here is load-bearing.** The flat cabinet still renders, still holds
 its own capture, and is still the accessible control surface: the seven title
