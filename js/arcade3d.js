@@ -82,13 +82,13 @@ const OVERHANG = { a: 5, b: 6 };
 // Seven positions, one per title, laid out 4+3 - the asymmetric row a
 // multi-game panel carries rather than the 3+3 a fighting cabinet would.
 const DECK_BUTTONS = [
-  { x: -0.27, s: 0.655, tag: "01" },
-  { x: -0.09, s: 0.675, tag: "02" },
-  { x: 0.09, s: 0.675, tag: "03" },
-  { x: 0.27, s: 0.655, tag: "04" },
-  { x: -0.18, s: 0.435, tag: "05" },
-  { x: 0.0, s: 0.45, tag: "06" },
-  { x: 0.18, s: 0.435, tag: "07" },
+  { x: -0.29, s: 0.70, tag: "01" },
+  { x: -0.10, s: 0.72, tag: "02" },
+  { x: 0.10, s: 0.72, tag: "03" },
+  { x: 0.29, s: 0.70, tag: "04" },
+  { x: -0.20, s: 0.36, tag: "05" },
+  { x: 0.0, s: 0.375, tag: "06" },
+  { x: 0.20, s: 0.36, tag: "07" },
 ];
 
 // CREDITS is a different KIND of control - it does not load a title, it
@@ -287,72 +287,10 @@ function deckArtTexture(labels) {
     g.textAlign = "center";
     g.textBaseline = "middle";
 
-    // A ring painted round each button position, and the title it loads
-    // printed clear of it - above the back row, below the front row, so the
-    // two never write into each other. The zoom looks down at the deck now,
-    // which is what finally made lettering this size worth printing.
-    for (const b of labels) {
-      g.beginPath();
-      g.arc(cx(b.x), cy(b.s), 104, 0, Math.PI * 2);
-      g.strokeStyle = "rgba(214,140,230,0.2)";
-      g.lineWidth = 4;
-      g.stroke();
-
-      const above = b.s > 0.55;
-      const ly = cy(b.s + (above ? 0.175 : -0.16));
-      let name = (b.name || "").toUpperCase();
-      if (!name) continue;
-
-      // Phones get the same titles, just bigger and over two lines. Cutting
-      // them to a single word was worse than small: the longest word in "The
-      // Amazing SaniBoy" is AMAZING, and in "Albert's Ark Idle" it is ALBERT'S,
-      // so the label ended up naming the wrong thing.
-      const tight = innerWidth < 860;
-
-      // Buttons are 0.18 apart, which is 297px here, so a name has to live
-      // inside 250 to keep a gap from its neighbour. These are real titles and
-      // several do not: rather than shrink "THE AMAZING SANIBOY" until it is
-      // unreadable, it gets broken over two lines and stays legible.
-      const MAXW = tight ? 236 : 250;
-      g.letterSpacing = "1px";
-      const fits = (text, px) => {
-        g.font = "700 " + px + "px ui-monospace, Menlo, monospace";
-        return g.measureText(text).width <= MAXW;
-      };
-
-      let lines = [name];
-      let size = tight ? 76 : 54;
-      while (size > (tight ? 46 : 34) && !fits(name, size)) size -= 2;
-      if (!fits(name, size)) {
-        // Break at the word boundary nearest the middle, so neither line is a
-        // stub.
-        const words = name.split(" ");
-        let best = 1;
-        let bestGap = Infinity;
-        for (let k = 1; k < words.length; k++) {
-          const gap = Math.abs(words.slice(0, k).join(" ").length - words.slice(k).join(" ").length);
-          if (gap < bestGap) { bestGap = gap; best = k; }
-        }
-        lines = words.length > 1
-          ? [words.slice(0, best).join(" "), words.slice(best).join(" ")]
-          : [name];
-        size = tight ? 68 : 46;
-        while (size > (tight ? 40 : 26) && !lines.every((l) => fits(l, size))) size -= 2;
-      }
-
-      g.font = "700 " + size + "px ui-monospace, Menlo, monospace";
-      const tw = Math.max(...lines.map((l) => g.measureText(l).width));
-      const th = size * (lines.length === 2 ? 2.1 : 1.24);
-      g.fillStyle = "rgba(9,8,12,0.66)";
-      g.fillRect(cx(b.x) - tw / 2 - 12, ly - th / 2, tw + 24, th);
-      g.fillStyle = "#f2efe8";
-      lines.forEach((l, k) => {
-        const dy = lines.length === 2 ? (k === 0 ? -size * 0.5 : size * 0.5) : 0;
-        g.fillText(l, cx(b.x), ly + dy + 2);
-      });
-    }
-
-
+    // The panel carries nothing per-button any more. Seven label plates, seven
+    // painted rings and a legend were all competing on a surface the camera
+    // already foreshortens; the titles are printed on the keys themselves now,
+    // which is both what a multi-game panel does and six fewer things to read.
     // The well the amber CREDITS control sits in, and what it is for. It is
     // the one thing on this deck that does not load a title, so it is marked
     // out rather than left to look like an eighth game.
@@ -364,11 +302,6 @@ function deckArtTexture(labels) {
       g.strokeStyle = "rgba(255,196,92,0.5)";
       g.lineWidth = 5;
       g.strokeRect(bx - cw / 2 - 16, by - ch / 2 - 16, cw + 32, ch + 32);
-      g.font = "700 52px ui-monospace, Menlo, monospace";
-      g.letterSpacing = "7px";
-      g.textAlign = "center";
-      g.fillStyle = "rgba(255,206,120,0.95)";
-      g.fillText("CREDITS", bx, by - ch / 2 - 62);
     }
 
     // Where the heels of two players' hands have sat for years.
@@ -836,6 +769,104 @@ function doorInsideTexture(handle) {
     g.fillStyle = "rgba(42,31,12,0.6)";
     g.fillText(handle ? "DISCORD" : "SAY HELLO", 0, ch / 2 - 56);
     g.restore();
+  });
+}
+
+/**
+ * A key cap with its title printed on it.
+ *
+ * The names used to sit on the panel beside each button, which meant seven
+ * label plates, seven painted rings and a legend all competing on a surface
+ * the camera already foreshortens. Printing the title on the key itself is
+ * both what a multi-game panel does and one less thing on the deck.
+ *
+ * Filler words go: "THE AMAZING SANIBOY" on a 164mm cap is unreadable, and
+ * "AMAZING SANIBOY" at a third larger is not.
+ */
+function capTexture(name, colour) {
+  // A cylinder's end cap maps u to x and v to z, so a texture drawn the way it
+  // reads on screen lands turned a quarter turn once the cap is lying on the
+  // sloped deck. The texture is spun back rather than the drawing being done
+  // sideways, which would have made this function unreadable.
+  const tex = capTextureRaw(name, colour);
+  tex.center.set(0.5, 0.5);
+  tex.rotation = Math.PI / 2;
+  return tex;
+}
+
+function capTextureRaw(name, colour) {
+  return canvasTexture(256, 256, (g, w) => {
+    g.fillStyle = colour;
+    g.fillRect(0, 0, w, w);
+
+    // The cap is domed, so it is brighter toward the light and falls away.
+    const dome = g.createRadialGradient(w * 0.38, w * 0.34, 4, w * 0.5, w * 0.5, w * 0.62);
+    dome.addColorStop(0, "rgba(255,255,255,0.4)");
+    dome.addColorStop(0.55, "rgba(255,255,255,0)");
+    dome.addColorStop(1, "rgba(0,0,0,0.3)");
+    g.fillStyle = dome;
+    g.fillRect(0, 0, w, w);
+
+    const words = (name || "").toUpperCase().split(" ")
+      .filter((t) => t !== "THE" && t !== "AND" && t !== "OF");
+    if (!words.length) return;
+
+    const MAXW = 196;
+    const fits = (lines, px) => {
+      g.font = "800 " + px + "px ui-monospace, Menlo, monospace";
+      return lines.every((l) => g.measureText(l).width <= MAXW);
+    };
+
+    // One line if it fits, otherwise split at the boundary nearest the middle
+    // so neither line is a stub.
+    let lines = [words.join(" ")];
+    let size = 46;
+    while (size > 30 && !fits(lines, size)) size -= 2;
+    if (!fits(lines, size) && words.length > 1) {
+      let best = 1;
+      let gap = Infinity;
+      for (let k = 1; k < words.length; k++) {
+        const d = Math.abs(words.slice(0, k).join(" ").length - words.slice(k).join(" ").length);
+        if (d < gap) { gap = d; best = k; }
+      }
+      lines = [words.slice(0, best).join(" "), words.slice(best).join(" ")];
+      size = 42;
+      while (size > 22 && !fits(lines, size)) size -= 2;
+    }
+
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.font = "800 " + size + "px ui-monospace, Menlo, monospace";
+    lines.forEach((l, i) => {
+      const y = w / 2 + (lines.length === 2 ? (i === 0 ? -size * 0.58 : size * 0.58) : 0);
+      g.fillStyle = "rgba(255,255,255,0.5)";
+      g.fillText(l, w / 2, y + 2);
+      g.fillStyle = "rgba(18,14,8,0.9)";
+      g.fillText(l, w / 2, y);
+    });
+  });
+}
+
+/** The amber key, with what it does written on it. */
+function creditsCapTexture(colour) {
+  return canvasTexture(512, 128, (g, w, h) => {
+    g.fillStyle = colour;
+    g.fillRect(0, 0, w, h);
+    const dome = g.createLinearGradient(0, 0, 0, h);
+    dome.addColorStop(0, "rgba(255,255,255,0.38)");
+    dome.addColorStop(0.5, "rgba(255,255,255,0)");
+    dome.addColorStop(1, "rgba(0,0,0,0.26)");
+    g.fillStyle = dome;
+    g.fillRect(0, 0, w, h);
+
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.font = "800 58px ui-monospace, Menlo, monospace";
+    g.letterSpacing = "8px";
+    g.fillStyle = "rgba(255,255,255,0.5)";
+    g.fillText("CREDITS", w / 2, h / 2 + 3);
+    g.fillStyle = "rgba(48,30,4,0.92)";
+    g.fillText("CREDITS", w / 2, h / 2);
   });
 }
 
@@ -1425,8 +1456,8 @@ function buildCabinet() {
   }
 
   // Buttons: three per player, staggered up the deck in the usual arc.
-  const btnGeo = new THREE.CylinderGeometry(0.046, 0.046, 0.03, 24);
-  const ringGeo = new THREE.CylinderGeometry(0.057, 0.057, 0.012, 24);
+  const btnGeo = new THREE.CylinderGeometry(0.082, 0.082, 0.03, 40);
+  const ringGeo = new THREE.CylinderGeometry(0.094, 0.094, 0.012, 40);
   const btnColors = [0xf5a623, 0x14b87a, 0xe0245e];
   const CREDITS_COLOR = 0xffc45c;
 
@@ -1441,10 +1472,16 @@ function buildCabinet() {
     holder.add(ring);
 
     const color = btnColors[i % btnColors.length];
-    const cap = new THREE.Mesh(
-      btnGeo,
-      new THREE.MeshStandardMaterial({ color, roughness: 0.3, envMapIntensity: 0.4, emissive: color, emissiveIntensity: 0.06 })
-    );
+    // A cylinder is three groups - side, top, bottom - so the printed face can
+    // be its own material without a second mesh.
+    const side = new THREE.MeshStandardMaterial({
+      color, roughness: 0.3, envMapIntensity: 0.4, emissive: color, emissiveIntensity: 0.06,
+    });
+    const top = new THREE.MeshStandardMaterial({
+      map: capTexture(legend[i] && legend[i].name, hex(color)),
+      roughness: 0.32, envMapIntensity: 0.4, emissive: color, emissiveIntensity: 0.06,
+    });
+    const cap = new THREE.Mesh(btnGeo, [side, top, side]);
     cap.position.y = 0.026;
     cap.userData.hit = "button";
     holder.add(cap);
@@ -1484,12 +1521,19 @@ function buildCabinet() {
     bezel.position.y = 0.006;
     holder.add(bezel);
 
+    // Box groups run +x, -x, +y, -y, +z, -z, so index 2 is the face you read.
+    const plain = new THREE.MeshStandardMaterial({
+      color: CREDITS_COLOR, roughness: 0.3, envMapIntensity: 0.4,
+      emissive: CREDITS_COLOR, emissiveIntensity: 0.06,
+    });
+    const face = new THREE.MeshStandardMaterial({
+      map: creditsCapTexture(hex(CREDITS_COLOR)),
+      roughness: 0.32, envMapIntensity: 0.4,
+      emissive: CREDITS_COLOR, emissiveIntensity: 0.06,
+    });
     const cap = new THREE.Mesh(
       new THREE.BoxGeometry(CREDITS_BUTTON.w, 0.025, CREDITS_BUTTON.d),
-      new THREE.MeshStandardMaterial({
-        color: CREDITS_COLOR, roughness: 0.3, envMapIntensity: 0.4,
-        emissive: CREDITS_COLOR, emissiveIntensity: 0.06,
-      })
+      [plain, plain, face, plain, plain, plain]
     );
     cap.position.y = 0.024;
     cap.userData.hit = "button";
@@ -2539,7 +2583,9 @@ export default function boot() {
       const attract = Math.max(0, 1 - Math.abs(sweep - b.nx) * 5.5) * 0.45;
       const lit = Math.max(b.press, attract);
       b.cap.position.y = b.restY - b.press * 0.014;
-      b.cap.material.emissiveIntensity = 0.06 + lit * 1.3;
+      // The cap is three materials now, so the lamp has to reach all of them.
+      const mats = Array.isArray(b.cap.material) ? b.cap.material : [b.cap.material];
+      for (const m of mats) m.emissiveIntensity = 0.06 + lit * 1.3;
       b.halo.material.opacity = lit * 0.6;
     }
 
