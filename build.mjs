@@ -850,7 +850,19 @@ const A3D_LOADER = `
     }
     pending = true;
     import("./js/arcade3d.js?v=${A3D_HASH}")
-      .then(function (m) { pending = false; live = m.default(); })
+      .then(function (m) {
+        pending = false;
+        live = m.default();
+        // default() returns null when it cannot get a renderer up. That was
+        // silent, and it is not a rare case: a browser refuses a WebGL context
+        // to a page it is not currently showing, and opening a link in a
+        // background tab is a completely ordinary way to arrive here.
+        if (!live) bail(
+          "the renderer would not start. A browser refuses a WebGL context to " +
+          "a page it is not showing, so this is expected in a background tab - " +
+          "it retries as soon as the tab is looked at."
+        );
+      })
       .catch(function (err) { pending = false; bail("the module failed to load - " + err); });
   }
   function stop() { if (live) { live.destroy(); live = null; } }
@@ -861,6 +873,12 @@ const A3D_LOADER = `
   addEventListener("resize", function () {
     if (matchMedia(OK).matches) start(); else stop();
   }, { passive: true });
+
+  // The retry the bail above promises. start() is guarded, so a cabinet that
+  // is already running is left alone.
+  addEventListener("visibilitychange", function () {
+    if (!document.hidden) start();
+  });
 })();
 </script>`;
 
