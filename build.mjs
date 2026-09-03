@@ -426,6 +426,21 @@ const CSS = `
     white-space: nowrap;
     border: 0 !important;
   }
+  /* The machine carries these now: the stack is on its spec plate and the
+     experience rolls on its tube when CREDITS is pressed. Same treatment as
+     the work panel - clipped, not deleted, so the writing stays in the
+     accessibility tree and in the markup a crawler reads. */
+  .a3d #stack .stack-grid,
+  .a3d #experience .roles {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0 !important;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0 !important;
+  }
+
   .a3d .arcade-controls:focus-within {
     position: static !important;
     width: auto; height: auto;
