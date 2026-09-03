@@ -270,7 +270,7 @@ Nothing here touches first paint. The module and Three.js are imported on
 be served a stale cabinet.
 
 ```
-js/arcade3d.js               69 KB   (22 KB gzipped)
+js/arcade3d.js              101 KB   (32 KB gzipped)
 vendor/three.*.min.js       733 KB  (184 KB gzipped)  pinned three@0.185.1
 ```
 
