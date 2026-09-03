@@ -295,14 +295,20 @@ function deckArtTexture(labels) {
 
       const above = b.s > 0.55;
       const ly = cy(b.s + (above ? 0.175 : -0.16));
-      const name = (b.name || "").toUpperCase();
+      let name = (b.name || "").toUpperCase();
       if (!name) continue;
+
+      // Phones get the same titles, just bigger and over two lines. Cutting
+      // them to a single word was worse than small: the longest word in "The
+      // Amazing SaniBoy" is AMAZING, and in "Albert's Ark Idle" it is ALBERT'S,
+      // so the label ended up naming the wrong thing.
+      const tight = innerWidth < 860;
 
       // Buttons are 0.18 apart, which is 297px here, so a name has to live
       // inside 250 to keep a gap from its neighbour. These are real titles and
       // several do not: rather than shrink "THE AMAZING SANIBOY" until it is
       // unreadable, it gets broken over two lines and stays legible.
-      const MAXW = 250;
+      const MAXW = tight ? 236 : 250;
       g.letterSpacing = "1px";
       const fits = (text, px) => {
         g.font = "700 " + px + "px ui-monospace, Menlo, monospace";
@@ -310,8 +316,8 @@ function deckArtTexture(labels) {
       };
 
       let lines = [name];
-      let size = 54;
-      while (size > 34 && !fits(name, size)) size -= 2;
+      let size = tight ? 76 : 54;
+      while (size > (tight ? 46 : 34) && !fits(name, size)) size -= 2;
       if (!fits(name, size)) {
         // Break at the word boundary nearest the middle, so neither line is a
         // stub.
@@ -325,8 +331,8 @@ function deckArtTexture(labels) {
         lines = words.length > 1
           ? [words.slice(0, best).join(" "), words.slice(best).join(" ")]
           : [name];
-        size = 46;
-        while (size > 26 && !lines.every((l) => fits(l, size))) size -= 2;
+        size = tight ? 68 : 46;
+        while (size > (tight ? 40 : 26) && !lines.every((l) => fits(l, size))) size -= 2;
       }
 
       g.font = "700 " + size + "px ui-monospace, Menlo, monospace";
@@ -563,6 +569,7 @@ function grainTexture() {
  */
 function backPanelTexture(spec) {
   return canvasTexture(1024, 1500, (g, w, h) => {
+    const tightPlate = innerWidth < 860;
     const board = g.createLinearGradient(0, 0, 0, h);
     board.addColorStop(0, "#2a2533");
     board.addColorStop(1, "#1b1723");
@@ -617,10 +624,10 @@ function backPanelTexture(spec) {
     const ink = "#3a2c14";
     g.textBaseline = "middle";
     g.textAlign = "center";
-    g.font = "800 52px ui-monospace, Menlo, monospace";
+    g.font = (tightPlate ? "800 78px" : "800 52px") + " ui-monospace, Menlo, monospace";
     g.letterSpacing = "10px";
     g.fillStyle = ink;
-    g.fillText("SPECIFICATION", w / 2, pTop + 70);
+    g.fillText("SPECIFICATION", w / 2, pTop + (tightPlate ? 84 : 70));
     g.strokeStyle = "rgba(58,44,20,0.4)";
     g.lineWidth = 3;
     g.beginPath();
@@ -628,13 +635,16 @@ function backPanelTexture(spec) {
     g.lineTo(w - 140, pTop + 108);
     g.stroke();
 
-    // Two columns, four rows: all eight groups the section carries.
+    // Two columns, four rows: all eight groups the section carries. A phone
+    // sees this plate at about a fifth of the desktop's width, so there it
+    // takes four groups at nearly double the size instead - the same trade the
+    // case notes make, for the same reason.
     g.textAlign = "left";
-    const colX = [132, w / 2 + 26];
-    const colTop = pTop + 162;
-    const rowH = 172;
-    const colW = w / 2 - 172;
-    spec.slice(0, 8).forEach((c, i) => {
+    const colX = tightPlate ? [132, w / 2 + 26] : [132, w / 2 + 26];
+    const colTop = pTop + (tightPlate ? 190 : 162);
+    const rowH = tightPlate ? 320 : 172;
+    const colW = w / 2 - 152;
+    spec.slice(0, tightPlate ? 4 : 8).forEach((c, i) => {
       const x = colX[i % 2];
       const y = colTop + Math.floor(i / 2) * rowH;
 
@@ -642,25 +652,29 @@ function backPanelTexture(spec) {
       // the same fit-to-column treatment as the items under them. Without it
       // the left column ran straight into the right one.
       const head = c.head.toUpperCase();
-      g.letterSpacing = "3px";
-      let hs = 33;
-      for (; hs > 19; hs -= 1) {
+      g.letterSpacing = tightPlate ? "1px" : "3px";
+      let hs = tightPlate ? 56 : 33;
+      for (; hs > (tightPlate ? 24 : 17); hs -= 1) {
         g.font = "700 " + hs + "px ui-monospace, Menlo, monospace";
-        if (g.measureText(head).width < colW) break;
+        if (g.measureText(head).width <= colW) break;
       }
       g.fillStyle = ink;
       g.fillText(head, x, y);
 
       g.letterSpacing = "0px";
+      // One size for the whole group, set by its longest line. Fitting each
+      // item on its own left a column of mixed sizes, which reads as a mistake
+      // rather than as emphasis.
+      const items = c.items.slice(0, 3);
+      let size = tightPlate ? 48 : 29;
+      for (; size > (tightPlate ? 26 : 17); size -= 1) {
+        g.font = "500 " + size + "px ui-monospace, Menlo, monospace";
+        if (items.every((it) => g.measureText(it).width <= colW)) break;
+      }
       g.fillStyle = "rgba(58,44,20,0.78)";
-      c.items.slice(0, 3).forEach((it, k) => {
-        // Shrink anything that would run into the next column.
-        let size = 29;
-        for (; size > 18; size -= 1) {
-          g.font = "500 " + size + "px ui-monospace, Menlo, monospace";
-          if (g.measureText(it).width < colW) break;
-        }
-        g.fillText(it, x, y + 46 + k * 38);
+      g.font = "500 " + size + "px ui-monospace, Menlo, monospace";
+      items.forEach((it, k) => {
+        g.fillText(it, x, y + (tightPlate ? 78 : 46) + k * (tightPlate ? 62 : 38));
       });
     });
 
@@ -1184,26 +1198,38 @@ function buildCabinet() {
       return out;
     };
 
-    let y = 70;
-    const descFont = "500 52px Spectral, Georgia, serif";
-    for (const line of wrap(desc || "", descFont, w - 150).slice(0, 2)) {
+    // A phone gets fewer words at a bigger size. This panel is a fixed slice
+    // of a machine whose width is already capped by the viewport, so on a
+    // narrow screen the only way to make anything legible is to say less: the
+    // detail lines drop and the description gets the whole plate. Rendering
+    // both at the desktop density put this text at about 6px on a phone.
+    const tight = innerWidth < 860;
+
+    let y = tight ? 96 : 70;
+    const descFont = tight
+      ? "500 78px Spectral, Georgia, serif"
+      : "500 52px Spectral, Georgia, serif";
+    const descLines = wrap(desc || "", descFont, w - (tight ? 120 : 150));
+    for (const line of descLines.slice(0, tight ? 3 : 2)) {
       g.font = descFont;
-      g.fillStyle = "rgba(240,237,230,0.9)";
-      g.fillText(line, 75, y);
-      y += 62;
+      g.fillStyle = "rgba(240,237,230,0.92)";
+      g.fillText(line, tight ? 60 : 75, y);
+      y += tight ? 92 : 62;
     }
 
-    y += 14;
-    const bFont = "500 40px ui-monospace, Menlo, monospace";
-    for (const b of (bullets || []).slice(0, 2)) {
-      const lines = wrap(b, bFont, w - 200);
-      g.fillStyle = hex(MAGENTA_HI);
-      g.fillRect(75, y - 12, 8, 24);
-      g.font = bFont;
-      g.fillStyle = "rgba(240,237,230,0.62)";
-      g.fillText(lines[0] + (lines.length > 1 ? "..." : ""), 108, y);
-      y += 52;
-      if (y > h - 30) break;
+    if (!tight) {
+      y += 14;
+      const bFont = "500 40px ui-monospace, Menlo, monospace";
+      for (const b of (bullets || []).slice(0, 2)) {
+        const lines = wrap(b, bFont, w - 200);
+        g.fillStyle = hex(MAGENTA_HI);
+        g.fillRect(75, y - 12, 8, 24);
+        g.font = bFont;
+        g.fillStyle = "rgba(240,237,230,0.62)";
+        g.fillText(lines[0] + (lines.length > 1 ? "..." : ""), 108, y);
+        y += 52;
+        if (y > h - 30) break;
+      }
     }
     noteTex.needsUpdate = true;
   };
@@ -1263,6 +1289,15 @@ function buildCabinet() {
   deckPlate.position.set(0, plateAt.y, plateAt.z);
   deckPlate.rotation.x = -deckFace;
   group.add(deckPlate);
+
+  // The panel art is drawn at a density that depends on the viewport, so it
+  // has to be redrawable rather than baked once at boot.
+  const rebuildDeck = () => {
+    const next = deckArtTexture(panelLegend());
+    if (deckPlate.material.map) deckPlate.material.map.dispose();
+    deckPlate.material.map = next;
+    deckPlate.material.needsUpdate = true;
+  };
   // Screwed to the front strip of the deck, ahead of the joystick bases -
   // which sit from about 0.22 along it, so this clears them.
   const tag = new THREE.Mesh(
@@ -1379,6 +1414,12 @@ function buildCabinet() {
       metalness: 0.1,
     })
   );
+  const rebuildBack = () => {
+    const next = backPanelTexture(stackSpec());
+    if (back.material.map) back.material.map.dispose();
+    back.material.map = next;
+    back.material.needsUpdate = true;
+  };
   back.position.set(0, 1.9, -(DEPTH + LIFT));
   back.rotation.y = Math.PI;
   group.add(back);
@@ -1451,7 +1492,7 @@ function buildCabinet() {
   aura.position.set(0, 1.9, -1.4);
   group.add(aura);
 
-  return { group, screen, screenUniforms, screenGlow, joysticks, buttons, marquee, marqueeGlow, pool, doorHinge, setTitle, setDetails };
+  return { group, screen, screenUniforms, screenGlow, joysticks, buttons, marquee, marqueeGlow, pool, doorHinge, setTitle, setDetails, rebuildDeck, rebuildBack };
 }
 
 // ── module ─────────────────────────────────────────────────────────────────
@@ -1526,6 +1567,7 @@ export default function boot() {
   // follow, and every new section meant two more letters.
   const stops = [];
   let fadeSpan = 1;
+  let wasNarrow = null; // so a breakpoint crossing can redraw the panels
   let contentLeft = 0; // where the page's copy starts, for the corner rest
   let vw = 0;
   let vh = 0;
@@ -1536,6 +1578,13 @@ export default function boot() {
     settled = false; // re-seat the springs; a resize is not a movement
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, vw < 860 ? 1.4 : 1.75));
     glowOn = !matchMedia("(pointer: coarse)").matches && vw >= 860;
+
+    // The panels are drawn at a density that depends on the viewport, so
+    // crossing the breakpoint has to redraw them. Without this, a phone rotated
+    // to landscape keeps the one-word labels it was built with.
+    const nowNarrow = vw < 860;
+    if (wasNarrow !== null && nowNarrow !== wasNarrow) rebuildPanels();
+    wasNarrow = nowNarrow;
     renderer.setSize(vw, vh, false);
     camera.aspect = vw / vh;
     camera.updateProjectionMatrix();
@@ -1651,11 +1700,15 @@ export default function boot() {
     // this holds the heading has scrolled out of the frame. It looks DOWN at
     // the machine, which is the only way the control panel opens up enough to
     // read the legend printed on it.
+    // The phone is allowed to run the machine slightly past the edges of the
+    // screen. Fitting the whole cabinet inside 390px leaves everything on it
+    // too small to read, and the parts that get cropped are the outer corners
+    // of the side panels - nothing anybody needs.
     const zoom = frameBand(
       BAND_LOW, BAND_HIGH,
-      vh * (narrow ? 0.72 : 0.86),
-      vw * (narrow ? 0.94 : 0.62),
-      CENTRE_YAW, vh * 0.5
+      vh * (narrow ? 0.8 : 0.86),
+      vw * (narrow ? 1.16 : 0.62),
+      CENTRE_YAW, vh * (narrow ? 0.44 : 0.5)
     );
 
     // CONTACT - parked small in the bottom-left corner, out of the way of the
@@ -1687,7 +1740,9 @@ export default function boot() {
         // to stand: the machine fades up on approach instead.
         ? { x: vw * 0.5, y: vh * 0.5, h: zoom.h * 0.7, ry: CENTRE_YAW, rx: 0.02, op: 0 }
         : { x: vw * 0.775, y: vh * 0.54, h: vh * 0.66, ry: -0.42, rx: 0.05, op: 1 },
-      { x: vw * 0.5, y: zoom.y, h: zoom.h, ry: CENTRE_YAW, rx: 0.15, op: 1 },
+      // Looks down harder on a phone: the control panel is the surface that
+      // suffers most from foreshortening, and it carries the labels.
+      { x: vw * 0.5, y: zoom.y, h: zoom.h, ry: CENTRE_YAW, rx: narrow ? 0.26 : 0.15, op: 1 },
       { x: vw * 0.5, y: vh * 0.5, h: backH, ry: BACK_YAW, rx: 0.06, op: 1 },
       { x: cornerX, y: cornerY, h: cornerH, ry: CORNER_YAW, rx: 0.03, op: 1 },
     ];
@@ -1715,6 +1770,13 @@ export default function boot() {
    * The active title's write-up, read off the panel the page already renders.
    * The first paragraph is the description; the list under it is the detail.
    */
+  /** Redraw everything whose density depends on the viewport. */
+  function rebuildPanels() {
+    cab.rebuildDeck();
+    cab.rebuildBack();
+    syncMedia();
+  }
+
   function panelNotes() {
     const box = screenEl.querySelector(".cab-notes");
     if (!box) return { desc: "", bullets: [] };
