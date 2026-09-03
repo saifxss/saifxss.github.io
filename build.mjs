@@ -359,12 +359,55 @@ const CSS = `
   }
   #a3d-src video, #a3d-src img { width: 100%; height: 100%; object-fit: cover; }
 
-  /* The flat cabinet is NOT reshaped any more. It was, while the machine
-     stayed docked beside it for the length of the section - but the machine
-     dissolves partway down now, and a panel that had been stripped of its
-     marquee and its capture would be left holding an empty frame the moment
-     it went. The two coexist instead: the machine is an overlay that hands
-     the section back, and the page underneath never changed. */
+  /* Under html.a3d the machine IS the work section's cabinet, so the flat one
+     gives up the parts the machine now provides: its marquee, its CRT pane and
+     its own moulded chrome. Two cabinets on one screen is the thing this is
+     here to avoid.
+
+     What it does NOT give up is the writing. The case notes, the title row and
+     the button row all stay exactly where they were, because they are the
+     section's actual content and no canvas should be the only place a visitor
+     can read it - not with JavaScript off, not in a screen reader, not in a
+     search result. The machine covers them while it is held at full size and
+     uncovers them as it leaves for the corner. */
+  .a3d .cab-marquee,
+  .a3d .cab-1p,
+  .a3d .shot-scrim { display: none !important; }
+
+  .a3d .cab-shell {
+    border: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    animation: none !important;
+  }
+
+  .a3d .cab-screenwrap {
+    margin-top: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  /* One column: the capture is on the tube, so the left pane is reduced to a
+     title card and the notes run the full width beneath it. The <video> itself
+     stays in the DOM - hidden, but present, because the tube reads its src off
+     this element to build its own copy. */
+  .a3d .arcade-screen {
+    grid-template-columns: 1fr !important;
+    min-height: 0 !important;
+  }
+  .a3d .cab-media {
+    min-height: 0 !important;
+    padding: 20px 24px 16px !important;
+    gap: 10px !important;
+    border-bottom: 1px solid rgba(240, 237, 230, 0.1);
+  }
+  .a3d .cab-media .shot-media,
+  .a3d .cab-media .no-footage { display: none !important; }
+  /* Absolute made sense over a capture. Over a title card it would overlap. */
+  .a3d .cab-media .now-playing { position: static !important; }
+  .a3d .cab-notes { border-left: 0 !important; overflow: visible !important; }
 </style>
 `;
 html = edit("responsive-css", html, "</helmet>", CSS + "</helmet>");
@@ -782,9 +825,23 @@ html = edit("a3d-shell", html, A3D_SHELL,
 
 // The media pane, already carrying the <video>/<img> an earlier transform put
 // in it. The module reads that element to know what to copy onto the tube; it
-// never touches it, so the pane keeps working whether or not the 3D runs.
+// never takes it, so the pane keeps working whether or not the 3D runs.
 html = edit("a3d-media", html, PANEL,
   PANEL.replace("<div style=", '<div class="cab-media" style='));
+
+// The rest of the hooks html.a3d needs to hand the cabinet's chrome over.
+cls("a3d-marquee",
+  '<div style="position:relative;border-radius:14px 14px 4px 4px;background:linear-gradient(180deg,oklch(0.34 0.12 320) 0%,oklch(0.24 0.1 320) 100%);border:1px solid oklch(0.62 0.16 320 / 0.45);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px;overflow:hidden">',
+  "cab-marquee");
+cls("a3d-screenwrap",
+  '<div style="margin-top:22px;border-radius:20px;background:#08080B;border:1px solid rgba(240,237,230,0.1);padding:16px;box-shadow:inset 0 0 60px rgba(0,0,0,0.9)">',
+  "cab-screenwrap");
+cls("a3d-notes",
+  '<div style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:{{ active.anim }} 460ms cubic-bezier(.2,.8,.3,1)">',
+  "cab-notes");
+cls("a3d-1p",
+  '<div style="display:flex;flex-direction:column;align-items:center;gap:9px">',
+  "cab-1p");
 
 // The canvas and the capture holder go outside the design's markup entirely,
 // so a re-export cannot move them.

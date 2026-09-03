@@ -544,6 +544,131 @@ function grainTexture() {
   return tex;
 }
 
+/**
+ * The back of the machine: a vented access panel and the spec plate.
+ *
+ * This face was a blank wall, which was fine while nothing ever turned the
+ * cabinet round. The stack section does, so the back has to be worth arriving
+ * at - and the honest thing to put on the back of a machine is its
+ * specification, which is exactly what that section is.
+ */
+function backPanelTexture(spec) {
+  return canvasTexture(1024, 1500, (g, w, h) => {
+    const board = g.createLinearGradient(0, 0, 0, h);
+    board.addColorStop(0, "#2a2533");
+    board.addColorStop(1, "#1b1723");
+    g.fillStyle = board;
+    g.fillRect(0, 0, w, h);
+
+    // Louvred vent over the monitor chassis, where the heat actually is.
+    const vTop = 60;
+    const vH = 280;
+    g.fillStyle = "#0d0c11";
+    g.fillRect(90, vTop, w - 180, vH);
+    for (let y = vTop + 26; y < vTop + vH - 12; y += 34) {
+      g.fillStyle = "rgba(0,0,0,0.85)";
+      g.fillRect(112, y, w - 224, 17);
+      g.fillStyle = "rgba(240,237,230,0.10)";
+      g.fillRect(112, y + 17, w - 224, 4);
+    }
+    g.strokeStyle = "rgba(240,237,230,0.13)";
+    g.lineWidth = 4;
+    g.strokeRect(90, vTop, w - 180, vH);
+
+    // The spec plate.
+    const pTop = vTop + vH + 60;
+    const pH = 840;
+    const plate = g.createLinearGradient(0, pTop, 0, pTop + pH);
+    plate.addColorStop(0, "#cfd3db");
+    plate.addColorStop(0.5, "#9ba1ac");
+    plate.addColorStop(1, "#b9bfc9");
+    g.fillStyle = plate;
+    g.fillRect(70, pTop, w - 140, pH);
+    g.strokeStyle = "rgba(255,255,255,0.45)";
+    g.lineWidth = 5;
+    g.strokeRect(74, pTop + 4, w - 148, pH - 8);
+    g.strokeStyle = "rgba(38,42,50,0.4)";
+    g.lineWidth = 3;
+    g.strokeRect(84, pTop + 14, w - 168, pH - 28);
+
+    for (const [x, y] of [[112, pTop + 44], [w - 112, pTop + 44], [112, pTop + pH - 44], [w - 112, pTop + pH - 44]]) {
+      const r = g.createRadialGradient(x - 3, y - 3, 1, x, y, 15);
+      r.addColorStop(0, "#e6e9ee");
+      r.addColorStop(1, "#6f757f");
+      g.fillStyle = r;
+      g.beginPath();
+      g.arc(x, y, 14, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    const ink = "#23262d";
+    g.textBaseline = "middle";
+    g.textAlign = "center";
+    g.font = "800 44px ui-monospace, Menlo, monospace";
+    g.letterSpacing = "10px";
+    g.fillStyle = ink;
+    g.fillText("SPECIFICATION", w / 2, pTop + 66);
+    g.strokeStyle = "rgba(35,38,45,0.35)";
+    g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(150, pTop + 100);
+    g.lineTo(w - 150, pTop + 100);
+    g.stroke();
+
+    // Two columns, four rows: all eight groups the section carries.
+    g.textAlign = "left";
+    const colX = [132, w / 2 + 26];
+    const colTop = pTop + 150;
+    const rowH = 168;
+    const colW = w / 2 - 172;
+    spec.slice(0, 8).forEach((c, i) => {
+      const x = colX[i % 2];
+      const y = colTop + Math.floor(i / 2) * rowH;
+
+      // Headings are the long ones ("ARCHITECTURE & PATTERNS"), so they get
+      // the same fit-to-column treatment as the items under them. Without it
+      // the left column ran straight into the right one.
+      const head = c.head.toUpperCase();
+      g.letterSpacing = "3px";
+      let hs = 27;
+      for (; hs > 16; hs -= 1) {
+        g.font = "700 " + hs + "px ui-monospace, Menlo, monospace";
+        if (g.measureText(head).width < colW) break;
+      }
+      g.fillStyle = ink;
+      g.fillText(head, x, y);
+
+      g.letterSpacing = "0px";
+      g.fillStyle = "rgba(35,38,45,0.66)";
+      c.items.slice(0, 3).forEach((it, k) => {
+        // Shrink anything that would run into the next column.
+        let size = 24;
+        for (; size > 15; size -= 1) {
+          g.font = "500 " + size + "px ui-monospace, Menlo, monospace";
+          if (g.measureText(it).width < colW) break;
+        }
+        g.fillText(it, x, y + 40 + k * 33);
+      });
+    });
+
+    // Power inlet and a plate number, low down where they belong.
+    const iTop = pTop + pH + 44;
+    g.fillStyle = "#0d0c11";
+    g.fillRect(w / 2 - 96, iTop, 192, 128);
+    g.strokeStyle = "rgba(240,237,230,0.16)";
+    g.lineWidth = 4;
+    g.strokeRect(w / 2 - 96, iTop, 192, 128);
+    g.fillStyle = "rgba(240,237,230,0.24)";
+    for (const dx of [-38, 0, 38]) g.fillRect(w / 2 + dx - 9, iTop + 40, 18, 46);
+
+    g.textAlign = "center";
+    g.font = "600 24px ui-monospace, Menlo, monospace";
+    g.letterSpacing = "6px";
+    g.fillStyle = "rgba(240,237,230,0.34)";
+    g.fillText("SC-1 / TUNIS", w / 2, iTop + 168);
+  });
+}
+
 /** A soft radial disc, used additively for every light bloom in the scene. */
 function glowTexture() {
   return canvasTexture(128, 128, (g, w) => {
@@ -738,6 +863,19 @@ function panelLegend() {
     credits: !!b.credits,
     name: b.credits ? "CREDITS" : (names[i] || "-"),
   }));
+}
+
+/**
+ * The stack, as the cabinet's spec plate. Read off the page's own stack grid,
+ * because a second copy in here is a second thing to forget to update.
+ */
+function stackSpec() {
+  const grid = document.querySelector("#stack .stack-grid");
+  if (!grid) return [];
+  return [...grid.children].map((col) => {
+    const lines = (col.innerText || "").split(/\r?\n/).map((t) => t.trim()).filter(Boolean);
+    return { head: lines[0] || "", items: lines.slice(1) };
+  }).filter((c) => c.head);
 }
 
 function buildCabinet() {
@@ -1040,6 +1178,22 @@ function buildCabinet() {
     });
   });
 
+  // Bolted to the back wall, which the extrusion leaves at z = -DEPTH. Turned
+  // to face away from the camera, so it is only ever seen once the machine has
+  // been turned round.
+  const back = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.06, 1.55),
+    new THREE.MeshStandardMaterial({
+      map: backPanelTexture(stackSpec()),
+      roughnessMap: grain,
+      roughness: 0.62,
+      metalness: 0.1,
+    })
+  );
+  back.position.set(0, 1.66, -(DEPTH + LIFT));
+  back.rotation.y = Math.PI;
+  group.add(back);
+
   // ── the ground ──
   // Laid flat at the cabinet's feet. Seen at the shallow angle the camera
   // gives it, both planes foreshorten into a band under the machine, which is
@@ -1085,6 +1239,7 @@ export default function boot() {
   // machine keeps you company past them; the work section's own end is the
   // fallback if the page is ever reordered.
   const restEl = document.getElementById("experience");
+  const stackEl = document.getElementById("stack");
   const shellEl = document.querySelector(".cab-shell");
   const screenEl = document.querySelector(".arcade-screen");
   const host = document.getElementById("a3d");
@@ -1139,7 +1294,15 @@ export default function boot() {
   // Everything the choreography needs in document coordinates, refreshed when
   // the layout changes rather than every frame — a scroll handler that reads
   // getBoundingClientRect on four elements is a layout thrash.
-  const marks = { a: 0, b: 0, c: 0, d: 0, e: 0, f: 0 };
+  // One entry per held pose: the machine sits still between `in` and `out`,
+  // and travels to the next pose in the gap between one stop's `out` and the
+  // next one's `in`. There is one more keyframe than there are stops - the
+  // last one is the exit the machine fades into past the final hold.
+  //
+  // This replaced six hand-named marks. At four poses that was already hard to
+  // follow, and every new section meant two more letters.
+  const stops = [];
+  let fadeSpan = 1;
   let contentLeft = 0; // where the page's copy starts, for the corner rest
   let vw = 0;
   let vh = 0;
@@ -1164,48 +1327,52 @@ export default function boot() {
     const shellTop = shell.top + y;
     contentLeft = shell.left;
 
-    // Five stops. a-b the machine flies in from the hero; b-c it holds ZOOMED,
-    // framing the screen and the control deck with the marquee and the coin
-    // door cropped away; c-d it pulls back and travels to the bottom left; d-e
-    // it sits there small, uncovering the panel it was standing in front of;
-    // e-f it goes with the section rather than riding on into the next one.
-    //
-    // The zoom is anchored on the cabinet block rather than on the section
-    // top: framed that tightly the machine is wider than the gap beside the
-    // work heading, so the hold has to begin after the heading has left the
-    // frame rather than fight it for the room. The later stops hang off the
-    // work section's BOTTOM, because the cabinet block is only ~820px tall,
-    // less than a viewport, and anchoring five stops to it collapses them.
-    marks.a = workTop - vh * 0.75;
-    marks.b = shellTop - vh * 0.02;
-    marks.c = shellTop + vh * 0.28;
-    marks.d = shellTop + vh * 0.52;
-    // The corner rest runs past the work section and through whatever follows
-    // it, so the machine stays with you for a good stretch of scrolling
-    // instead of being dismissed the moment the projects end. It is small and
-    // tucked into the gutter by then, so it costs the page very little.
-    const restEnd = afterEl ? afterEl.bottom + y : workBottom + vh * 0.6;
-    marks.e = restEnd - vh * 0.55;
-    marks.f = restEnd - vh * 0.05;
-    // A short page, or a very tall viewport, can collapse these out of order.
-    marks.b = Math.max(marks.b, marks.a + 1);
-    marks.c = Math.max(marks.c, marks.b + 1);
-    marks.d = Math.max(marks.d, marks.c + 1);
-    marks.e = Math.max(marks.e, marks.d + 1);
-    marks.f = Math.max(marks.f, marks.e + 1);
+    // Hero, then one stop per section the machine has business in.
+    const sec = (el) => {
+      const r = el && el.getBoundingClientRect();
+      return r ? { top: r.top + y, bottom: r.bottom + y } : null;
+    };
+    const exp = sec(restEl);
+    const stack = sec(stackEl);
 
+    stops.length = 0;
+    // Beside the headline, from the top of the page.
+    stops.push({ in: -1e9, out: workTop - vh * 0.75 });
+    // The work section: zoomed onto the screen and the controls. Anchored on
+    // the cabinet block rather than the section top, because framed this
+    // tightly the machine is wider than the gap beside the work heading, so
+    // the hold has to begin once the heading has left the frame.
+    stops.push({ in: shellTop - vh * 0.02, out: shellTop + vh * 0.55 });
+    // Experience: parked bottom-left, rolling the credits.
+    if (exp) stops.push({ in: exp.top + vh * 0.05, out: exp.bottom - vh * 0.3 });
+    // Stack: turned round, showing the back panel that carries it.
+    if (stack) stops.push({ in: stack.top + vh * 0.05, out: stack.bottom - vh * 0.2 });
+    fadeSpan = vh * 0.5;
+
+    // A short page or a tall viewport can collapse these into each other.
+    for (let i = 1; i < stops.length; i++) {
+      stops[i].in = Math.max(stops[i].in, stops[i - 1].out + 1);
+      stops[i].out = Math.max(stops[i].out, stops[i].in + 1);
+    }
   }
 
-  /** 0 at the hero, 1 zoomed on the controls, 2 parked bottom-left, 3 gone. */
+  /**
+   * Where the machine is, as a float: whole numbers are the held poses, and
+   * the fraction between them is the travel. Past the last hold it runs on
+   * into the exit keyframe.
+   */
   function stage() {
     const y = scrollY;
-    if (y <= marks.a) return 0;
-    if (y < marks.b) return clamp01((y - marks.a) / (marks.b - marks.a));
-    if (y < marks.c) return 1;
-    if (y < marks.d) return 1 + clamp01((y - marks.c) / (marks.d - marks.c));
-    if (y < marks.e) return 2;
-    if (y < marks.f) return 2 + clamp01((y - marks.e) / (marks.f - marks.e));
-    return 3;
+    const n = stops.length;
+    if (!n) return 0;
+    if (y <= stops[0].out) return 0;
+    for (let i = 0; i < n - 1; i++) {
+      if (y < stops[i + 1].in) {
+        return i + clamp01((y - stops[i].out) / Math.max(1, stops[i + 1].in - stops[i].out));
+      }
+      if (y <= stops[i + 1].out) return i + 1;
+    }
+    return n - 1 + clamp01((y - stops[n - 1].out) / fadeSpan);
   }
 
   // ── screen-space placement ──
@@ -1253,9 +1420,11 @@ export default function boot() {
   function keyframes() {
     const narrow = vw < 860;
 
-    // The zoom: vertically it takes most of the screen, horizontally it is
-    // allowed to run past where the work heading sits, because by the time
-    // this beat holds the heading has scrolled out of the frame.
+    // WORK - the zoom. Vertically it takes most of the screen; horizontally it
+    // is allowed to run past where the work heading sits, because by the time
+    // this holds the heading has scrolled out of the frame. It looks DOWN at
+    // the machine, which is the only way the control panel opens up enough to
+    // read the legend printed on it.
     const zoom = frameBand(
       BAND_LOW, BAND_HIGH,
       vh * (narrow ? 0.72 : 0.86),
@@ -1263,22 +1432,23 @@ export default function boot() {
       CENTRE_YAW, vh * 0.5
     );
 
-    // The rest: the whole machine again, small, tucked INTO the bottom-left
-    // corner with a sliver hanging off the edge. This page has 44px of gutter,
-    // so a cabinet fully inside it would have to be either tiny or sitting on
-    // the copy; letting it bleed keeps it clear of the text and still reads as
-    // parked in the corner.
-    // Smaller on a phone: there is 20px of gutter there against 44 on the
-    // desktop, so the rule below cannot buy it any room and size has to.
+    // EXPERIENCE - parked small in the bottom-left, rolling the credits. It
+    // sits clear of the copy where the gutter allows it and never hides more
+    // than about half of itself where it does not; a phone has 20px of gutter
+    // against the desktop's 44, which no placement rule can buy room out of,
+    // so there the machine is made smaller instead.
     const cornerH = Math.min(vh * (narrow ? 0.2 : 0.32), narrow ? 150 : 250);
     const cornerW = cornerH * spanPerHeight(CORNER_YAW);
-    // Sit clear of the copy where the gutter allows it, and never hide more
-    // than about half the machine when it does not. Measured off the content
-    // edge rather than guessed, because that edge moves with the viewport.
     const cornerX = Math.max(cornerW * 0.06, contentLeft - 8 - cornerW / 2);
     const cornerY = vh - (narrow ? 10 : 22) - cornerH / 2;
 
-    return [
+    // STACK - turned round. The spring interpolates the yaw, so travelling
+    // from the corner's +0.34 to a little past PI IS the flip; nothing has to
+    // animate it. It stands off to the side rather than dead centre so the
+    // section's own list stays readable beside it.
+    const backH = Math.min(vh * (narrow ? 0.6 : 0.74), narrow ? 460 : 700);
+
+    const stages = [
       narrow
         // A narrow headline runs the full width, so there is nowhere beside it
         // to stand: the machine fades up on approach instead.
@@ -1286,9 +1456,14 @@ export default function boot() {
         : { x: vw * 0.775, y: vh * 0.54, h: vh * 0.66, ry: -0.42, rx: 0.05, op: 1 },
       { x: vw * 0.5, y: zoom.y, h: zoom.h, ry: CENTRE_YAW, rx: 0.15, op: 1 },
       { x: cornerX, y: cornerY, h: cornerH, ry: CORNER_YAW, rx: 0.03, op: 1 },
-      // Out with the section: down a little, smaller, under a fade.
-      { x: cornerX, y: cornerY + vh * 0.12, h: cornerH * 0.88, ry: CORNER_YAW, rx: 0.03, op: 0 },
+      { x: narrow ? vw * 0.5 : vw * 0.72, y: vh * 0.52, h: backH, ry: Math.PI + 0.26, rx: 0.06, op: 1 },
     ];
+
+    // One keyframe per stop, and the exit past the last of them.
+    const held = stages.slice(0, Math.max(1, stops.length));
+    const last = held[held.length - 1];
+    held.push({ ...last, y: last.y + vh * 0.1, h: last.h * 0.9, op: 0 });
+    return held;
   }
 
   // ── the flat cabinet's media, on the tube ──
@@ -1797,6 +1972,11 @@ export default function boot() {
 
   // ── loop ──
   let opacity = 1;
+  // Which held pose the machine last settled on, so arriving somewhere can do
+  // something. Only the experience stop cares: the tube rolls the credits
+  // there without being asked, which is the whole point of parking it beside
+  // that section.
+  let atStop = -1;
   // The one device check the renderer makes for itself: everything else is
   // gated in the loader, but this is a cost decision, not a capability one.
   // Re-read on resize, so dragging a window across the breakpoint switches it
@@ -1816,7 +1996,19 @@ export default function boot() {
 
     const t = stage();
     const k = keyframes();
-    const i = Math.min(Math.floor(t), 2);
+
+    // CREDITS_STOP is the experience pose - index 2 whenever that section
+    // exists, which measure() guarantees by only pushing stops for sections it
+    // actually found.
+    // Not `settled`: the spring already owns that name in this scope, and
+    // shadowing it here made the spring's own assignment throw every frame.
+    const landed = Math.abs(t - Math.round(t)) < 0.02 ? Math.round(t) : -1;
+    if (landed !== atStop) {
+      atStop = landed;
+      if (atStop === 2 && stops.length > 2) showCredits();
+      else if (creditsOn) leaveCredits();
+    }
+    const i = Math.min(Math.floor(t), k.length - 2);
     const f = smooth(clamp01(t - i));
     const A = k[i];
     const B = k[i + 1];
