@@ -91,6 +91,11 @@ const DECK_BUTTONS = [
   { x: 0.18, s: 0.435, tag: "07" },
 ];
 
+// CREDITS is a different KIND of control - it does not load a title, it
+// changes what the machine is doing - so it gets the shape a cabinet gives its
+// coin and start controls: a long rectangle, off to the side, in amber.
+const CREDITS_BUTTON = { x: 0.42, s: 0.17, w: 0.3, d: 0.078 };
+
 const SCREEN_W = 1.14;
 const SCREEN_H = 0.82; // the capture is 16:9 and is cover-cropped to fit
 
@@ -348,6 +353,24 @@ function deckArtTexture(labels) {
     }
 
 
+    // The well the amber CREDITS control sits in, and what it is for. It is
+    // the one thing on this deck that does not load a title, so it is marked
+    // out rather than left to look like an eighth game.
+    {
+      const cw = (CREDITS_BUTTON.w / 1.24) * w;
+      const ch = (CREDITS_BUTTON.d / 0.96) * h;
+      const bx = cx(CREDITS_BUTTON.x);
+      const by = cy(CREDITS_BUTTON.s);
+      g.strokeStyle = "rgba(255,196,92,0.5)";
+      g.lineWidth = 5;
+      g.strokeRect(bx - cw / 2 - 16, by - ch / 2 - 16, cw + 32, ch + 32);
+      g.font = "700 52px ui-monospace, Menlo, monospace";
+      g.letterSpacing = "7px";
+      g.textAlign = "center";
+      g.fillStyle = "rgba(255,206,120,0.95)";
+      g.fillText("CREDITS", bx, by - ch / 2 - 62);
+    }
+
     // Where the heels of two players' hands have sat for years.
     for (const hx of [-0.42, 0.42]) {
       const worn = g.createRadialGradient(cx(hx), cy(0.3), 6, cx(hx), cy(0.3), w * 0.11);
@@ -568,7 +591,7 @@ function grainTexture() {
  * specification, which is exactly what that section is.
  */
 function backPanelTexture(spec) {
-  return canvasTexture(1024, 1500, (g, w, h) => {
+  return canvasTexture(1024, 1642, (g, w, h) => {
     const tightPlate = innerWidth < 860;
     const board = g.createLinearGradient(0, 0, 0, h);
     board.addColorStop(0, "#2a2533");
@@ -577,8 +600,8 @@ function backPanelTexture(spec) {
     g.fillRect(0, 0, w, h);
 
     // Louvred vent over the monitor chassis, where the heat actually is.
-    const vTop = 60;
-    const vH = 280;
+    const vTop = 46;
+    const vH = 232;
     g.fillStyle = "#0d0c11";
     g.fillRect(90, vTop, w - 180, vH);
     for (let y = vTop + 26; y < vTop + vH - 12; y += 34) {
@@ -595,12 +618,12 @@ function backPanelTexture(spec) {
     // the factory with. Card takes ink far better than brushed steel does:
     // dark on tan is the highest contrast anything on this machine gets, and
     // this panel has more to say than any other.
-    const pTop = vTop + vH + 60;
-    const pH = 840;
+    const pTop = vTop + vH + 54;
+    const pH = 1180;
     const card = g.createLinearGradient(0, pTop, 0, pTop + pH);
-    card.addColorStop(0, "#d8c39a");
-    card.addColorStop(0.5, "#cbb389");
-    card.addColorStop(1, "#c0a87e");
+    card.addColorStop(0, "#c2ad86");
+    card.addColorStop(0.5, "#b39c74");
+    card.addColorStop(1, "#a89268");
     g.fillStyle = card;
     g.fillRect(70, pTop, w - 140, pH);
 
@@ -641,10 +664,10 @@ function backPanelTexture(spec) {
     // case notes make, for the same reason.
     g.textAlign = "left";
     const colX = tightPlate ? [132, w / 2 + 26] : [132, w / 2 + 26];
-    const colTop = pTop + (tightPlate ? 190 : 162);
-    const rowH = tightPlate ? 320 : 172;
+    const colTop = pTop + (tightPlate ? 210 : 176);
+    const rowH = tightPlate ? 330 : 196;
     const colW = w / 2 - 152;
-    spec.slice(0, tightPlate ? 4 : 8).forEach((c, i) => {
+    spec.slice(0, tightPlate ? 6 : 10).forEach((c, i) => {
       const x = colX[i % 2];
       const y = colTop + Math.floor(i / 2) * rowH;
 
@@ -662,20 +685,38 @@ function backPanelTexture(spec) {
       g.fillText(head, x, y);
 
       g.letterSpacing = "0px";
-      // One size for the whole group, set by its longest line. Fitting each
+      // One size for the whole group, set by its longest line - fitting each
       // item on its own left a column of mixed sizes, which reads as a mistake
-      // rather than as emphasis.
+      // rather than as emphasis. Anything still too wide at that size wraps
+      // instead of shrinking further: "Bachelor's in Video Game Development"
+      // is a real entry, and squeezing it to fit made it the smallest thing on
+      // the plate.
       const items = c.items.slice(0, 3);
-      let size = tightPlate ? 48 : 29;
-      for (; size > (tightPlate ? 26 : 17); size -= 1) {
-        g.font = "500 " + size + "px ui-monospace, Menlo, monospace";
-        if (items.every((it) => g.measureText(it).width <= colW)) break;
-      }
-      g.fillStyle = "rgba(58,44,20,0.78)";
+      const size = tightPlate ? 40 : 26;
       g.font = "500 " + size + "px ui-monospace, Menlo, monospace";
-      items.forEach((it, k) => {
-        g.fillText(it, x, y + (tightPlate ? 78 : 46) + k * (tightPlate ? 62 : 38));
-      });
+      const lh = tightPlate ? 54 : 34;
+
+      const fold = (text) => {
+        if (g.measureText(text).width <= colW) return [text];
+        const out = [];
+        let line = "";
+        for (const word of text.split(" ")) {
+          const next = line ? line + " " + word : word;
+          if (g.measureText(next).width > colW && line) { out.push(line); line = word; }
+          else line = next;
+        }
+        if (line) out.push(line);
+        return out.slice(0, 2);
+      };
+
+      g.fillStyle = "rgba(58,44,20,0.78)";
+      let iy = y + (tightPlate ? 74 : 44);
+      for (const it of items) {
+        for (const line of fold(it)) {
+          g.fillText(line, x, iy);
+          iy += lh;
+        }
+      }
     });
 
     // Power inlet and a plate number, low down where they belong.
@@ -995,12 +1036,35 @@ function panelLegend() {
  * because a second copy in here is a second thing to forget to update.
  */
 function stackSpec() {
+  const read = (el) =>
+    (el.innerText || "").split(/\r?\n/).map((t) => t.trim()).filter(Boolean);
+
   const grid = document.querySelector("#stack .stack-grid");
-  if (!grid) return [];
-  return [...grid.children].map((col) => {
-    const lines = (col.innerText || "").split(/\r?\n/).map((t) => t.trim()).filter(Boolean);
-    return { head: lines[0] || "", items: lines.slice(1) };
-  }).filter((c) => c.head);
+  const groups = grid
+    ? [...grid.children].map((col) => {
+        const lines = read(col);
+        return { head: lines[0] || "", items: lines.slice(1) };
+      }).filter((c) => c.head)
+    : [];
+
+  // Education and Languages belong on a spec plate, not in a contact block.
+  // They live in the contact section on the page, so they are picked up by
+  // their heading rather than by position - the markup can move without this
+  // quietly dropping them.
+  const contact = document.getElementById("contact");
+  if (contact) {
+    for (const want of ["Education", "Languages"]) {
+      for (const node of contact.querySelectorAll("div")) {
+        if (node.children.length || node.textContent.trim() !== want) continue;
+        const body = node.nextElementSibling;
+        if (!body) break;
+        const items = read(body);
+        if (items.length) groups.push({ head: want, items });
+        break;
+      }
+    }
+  }
+  return groups;
 }
 
 function buildCabinet() {
@@ -1364,6 +1428,8 @@ function buildCabinet() {
   const btnGeo = new THREE.CylinderGeometry(0.046, 0.046, 0.03, 24);
   const ringGeo = new THREE.CylinderGeometry(0.057, 0.057, 0.012, 24);
   const btnColors = [0xf5a623, 0x14b87a, 0xe0245e];
+  const CREDITS_COLOR = 0xffc45c;
+
   DECK_BUTTONS.forEach((spec, i) => {
     const at = onDeck(spec.s, 0.014);
     const holder = new THREE.Group();
@@ -1399,19 +1465,66 @@ function buildCabinet() {
       cap, halo, press: 0, restY: 0.026,
       nx: (spec.x + WIDTH / 2) / WIDTH,
       project: i,
+      credits: false,
     });
   });
+
+  // The rectangle. Same hit surface and same press as the round ones, so
+  // nothing downstream has to care that it is a different shape.
+  {
+    const at = onDeck(CREDITS_BUTTON.s, 0.014);
+    const holder = new THREE.Group();
+    holder.position.set(CREDITS_BUTTON.x, at.y, at.z);
+    holder.rotation.x = deckTilt;
+
+    const bezel = new THREE.Mesh(
+      new THREE.BoxGeometry(CREDITS_BUTTON.w + 0.024, 0.012, CREDITS_BUTTON.d + 0.024),
+      chrome
+    );
+    bezel.position.y = 0.006;
+    holder.add(bezel);
+
+    const cap = new THREE.Mesh(
+      new THREE.BoxGeometry(CREDITS_BUTTON.w, 0.025, CREDITS_BUTTON.d),
+      new THREE.MeshStandardMaterial({
+        color: CREDITS_COLOR, roughness: 0.3, envMapIntensity: 0.4,
+        emissive: CREDITS_COLOR, emissiveIntensity: 0.06,
+      })
+    );
+    cap.position.y = 0.024;
+    cap.userData.hit = "button";
+    holder.add(cap);
+
+    const halo = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: glow, color: CREDITS_COLOR, blending: THREE.AdditiveBlending,
+        opacity: 0, depthWrite: false,
+      })
+    );
+    halo.scale.set(0.4, 0.22, 1);
+    halo.position.y = 0.04;
+    holder.add(halo);
+
+    cap.layers.enable(GLOW_LAYER);
+    group.add(holder);
+    buttons.push({
+      cap, halo, press: 0, restY: 0.024,
+      nx: (CREDITS_BUTTON.x + WIDTH / 2) / WIDTH,
+      project: -1, credits: true,
+    });
+  }
 
   // Bolted to the back wall, which the extrusion leaves at z = -DEPTH. Turned
   // to face away from the camera, so it is only ever seen once the machine has
   // been turned round.
   const back = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.06, 1.55),
+    new THREE.PlaneGeometry(1.06, 1.7),
     new THREE.MeshStandardMaterial({
       map: backPanelTexture(stackSpec()),
       roughnessMap: grain,
-      roughness: 0.62,
-      metalness: 0.1,
+      roughness: 0.78,
+      metalness: 0.0,
+      envMapIntensity: 0.35,
     })
   );
   const rebuildBack = () => {
@@ -1420,7 +1533,7 @@ function buildCabinet() {
     back.material.map = next;
     back.material.needsUpdate = true;
   };
-  back.position.set(0, 1.9, -(DEPTH + LIFT));
+  back.position.set(0, 2.13, -(DEPTH + LIFT));
   back.rotation.y = Math.PI;
   group.add(back);
 
@@ -1430,7 +1543,7 @@ function buildCabinet() {
   const doorW = 0.92;
   const doorH = 0.84;
   const doorHinge = new THREE.Group();
-  doorHinge.position.set(-doorW / 2, 0.92, -(DEPTH + LIFT));
+  doorHinge.position.set(-doorW / 2, 0.86, -(DEPTH + LIFT));
   group.add(doorHinge);
 
   const door = new THREE.Mesh(
@@ -1450,7 +1563,7 @@ function buildCabinet() {
     new THREE.PlaneGeometry(doorW, doorH),
     new THREE.MeshStandardMaterial({ map: doorInsideTexture(DISCORD), roughness: 0.8 })
   );
-  inside.position.set(0, 0.92, -(DEPTH + LIFT * 0.4));
+  inside.position.set(0, 0.86, -(DEPTH + LIFT * 0.4));
   inside.rotation.y = Math.PI;
   // The compartment closes the door too. Once the door has swung clear, the
   // click that would shut it lands here instead - so it opened and then would
@@ -1707,7 +1820,7 @@ export default function boot() {
     const zoom = frameBand(
       BAND_LOW, BAND_HIGH,
       vh * (narrow ? 0.8 : 0.86),
-      vw * (narrow ? 1.16 : 0.62),
+      vw * (narrow ? 0.99 : 0.62),
       CENTRE_YAW, vh * (narrow ? 0.44 : 0.5)
     );
 
@@ -1716,7 +1829,7 @@ export default function boot() {
     // gutter allows it and never hides more than about half of itself where it
     // does not; a phone has 20px of gutter against the desktop's 44, which no
     // placement rule can buy room out of, so there it is made smaller instead.
-    const cornerH = Math.min(vh * (narrow ? 0.2 : 0.32), narrow ? 150 : 250);
+    const cornerH = Math.min(vh * (narrow ? 0.3 : 0.32), narrow ? 230 : 250);
     const cornerW = cornerH * spanPerHeight(CORNER_YAW);
     const cornerX = Math.max(cornerW * 0.06, contentLeft - 8 - cornerW / 2);
     const cornerY = vh - (narrow ? 10 : 22) - cornerH / 2;
@@ -1728,22 +1841,29 @@ export default function boot() {
     // The WHOLE machine, not a band of it. frameBand exists to frame the
     // screen and the control deck, and neither is on this side - pointing it
     // at the back zooms hard onto a blank panel, which is exactly what it did.
+    // Framed on the panel rather than on the whole cabinet: the feet and the
+    // very top carry nothing, and fitting them in shrank the spec plate to
+    // about 7px. This is the same trick the front uses, with the band moved to
+    // where the back keeps its content.
     const BACK_YAW = Math.PI + 0.26;
-    const backH = Math.min(
-      vh * (narrow ? 0.78 : 0.88),
-      (vw * (narrow ? 0.9 : 0.5)) / spanPerHeight(BACK_YAW)
+    const backBand = frameBand(
+      0.34, 3.06,
+      vh * (narrow ? 0.86 : 0.94),
+      vw * (narrow ? 0.99 : 0.66),
+      BACK_YAW, vh * 0.5
     );
 
     const stages = [
       narrow
-        // A narrow headline runs the full width, so there is nowhere beside it
-        // to stand: the machine fades up on approach instead.
-        ? { x: vw * 0.5, y: vh * 0.5, h: zoom.h * 0.7, ry: CENTRE_YAW, rx: 0.02, op: 0 }
+        // A phone has no room beside the headline, so the machine sits low and
+        // angled under it - present from the first screen rather than fading
+        // up out of nothing, which read as though it had failed to load.
+        ? { x: vw * 0.62, y: vh * 0.82, h: vh * 0.52, ry: -0.36, rx: 0.05, op: 1 }
         : { x: vw * 0.775, y: vh * 0.54, h: vh * 0.66, ry: -0.42, rx: 0.05, op: 1 },
       // Looks down harder on a phone: the control panel is the surface that
       // suffers most from foreshortening, and it carries the labels.
       { x: vw * 0.5, y: zoom.y, h: zoom.h, ry: CENTRE_YAW, rx: narrow ? 0.26 : 0.15, op: 1 },
-      { x: vw * 0.5, y: vh * 0.5, h: backH, ry: BACK_YAW, rx: 0.06, op: 1 },
+      { x: vw * 0.5, y: backBand.y, h: backBand.h, ry: BACK_YAW, rx: 0.06, op: 1 },
       { x: cornerX, y: cornerY, h: cornerH, ry: CORNER_YAW, rx: 0.03, op: 1 },
     ];
 
@@ -1797,8 +1917,85 @@ export default function boot() {
     return badges.join("  \u00b7  ");
   }
 
+  // ── CREDITS ──
+  // The amber key does not load a title: it rolls the career. Read off the
+  // experience section, so the machine and the page cannot disagree, and built
+  // on the first press because most visitors never ask for it.
+  let creditsOn = false;
+  let creditsTex = null;
+
+  function buildCredits() {
+    const rows = [];
+    const roles = document.querySelector("#experience .roles");
+    if (roles) {
+      for (const row of roles.children) {
+        const lines = (row.innerText || "").split(/\r?\n/).map((t) => t.trim()).filter(Boolean);
+        if (lines.length) rows.push(lines);
+      }
+    }
+    return canvasTexture(1024, 736, (g, w, h) => {
+      g.fillStyle = "#0a0910";
+      g.fillRect(0, 0, w, h);
+
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.font = "800 60px ui-monospace, Menlo, monospace";
+      g.letterSpacing = "14px";
+      g.fillStyle = hex(MAGENTA_HI);
+      g.fillText("CREDITS", w / 2, 82);
+
+      g.strokeStyle = "rgba(214,140,230,0.35)";
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(w * 0.16, 128);
+      g.lineTo(w * 0.84, 128);
+      g.stroke();
+
+      let y = 194;
+      for (const lines of rows.slice(0, 5)) {
+        g.textAlign = "left";
+        g.font = "700 44px ui-monospace, Menlo, monospace";
+        g.letterSpacing = "2px";
+        g.fillStyle = "rgba(240,237,230,0.94)";
+        g.fillText(lines[0].toUpperCase(), w * 0.1, y);
+
+        if (lines[1]) {
+          g.font = "500 31px ui-monospace, Menlo, monospace";
+          g.letterSpacing = "4px";
+          g.fillStyle = "rgba(214,140,230,0.82)";
+          g.fillText(lines[1].toUpperCase(), w * 0.1, y + 46);
+        }
+        if (lines[2]) {
+          g.textAlign = "right";
+          g.font = "500 29px ui-monospace, Menlo, monospace";
+          g.fillStyle = "rgba(240,237,230,0.5)";
+          g.fillText(lines[2].toUpperCase(), w * 0.9, y);
+        }
+        y += 116;
+      }
+
+      g.textAlign = "center";
+      g.font = "600 27px ui-monospace, Menlo, monospace";
+      g.letterSpacing = "8px";
+      g.fillStyle = "rgba(240,237,230,0.42)";
+      g.fillText("PRESS ANY TITLE TO RESUME", w / 2, h - 42);
+    });
+  }
+
+  function showCredits() {
+    if (!creditsTex) creditsTex = buildCredits();
+    releaseMedia();
+    creditsOn = true;
+    cab.setTitle("Credits", "Experience");
+    cab.setDetails("Where I have built, and what I owned on each.", []);
+    cab.screenUniforms.uMediaAspect.value = 1024 / 736;
+    cab.screenUniforms.uMap.value = creditsTex;
+    cab.screenUniforms.uHasMap.value = 1;
+    cab.screenUniforms.uSwitch.value = 1;
+  }
+
   function releaseMedia() {
-    if (mediaTex) mediaTex.dispose();
+    if (mediaTex && mediaTex !== creditsTex) mediaTex.dispose();
     mediaTex = null;
     if (mediaEl && mediaEl.parentNode === src) mediaEl.remove();
     mediaEl = null;
@@ -1882,12 +2079,29 @@ export default function boot() {
   const coarse = matchMedia("(pointer: coarse)").matches;
   let tapAt = null;
 
+  /** True while the machine has its back to the viewer. */
+  function backToUs() {
+    return Math.cos(cur.ry) < -0.2;
+  }
+
   function pick(ev) {
     ndc.x = (ev.clientX / vw) * 2 - 1;
     ndc.y = -(ev.clientY / vh) * 2 + 1;
     ray.setFromCamera(ndc, camera);
     const hits = ray.intersectObjects(targets, false);
-    return hits.length ? hits[0].object : null;
+    if (!hits.length) return null;
+
+    // Nothing here tests occlusion - a ray does not know the cabinet is in the
+    // way - so a control is only live when its own face is the one you are
+    // looking at. Without this the service door could be opened straight
+    // through the front of the machine, and the buttons pressed through
+    // the back of it.
+    const back = backToUs();
+    for (const h of hits) {
+      const isDoor = h.object.userData.hit === "door";
+      if (isDoor === back) return h.object;
+    }
+    return null;
   }
 
   const api = () => window.__arcade;
@@ -1944,6 +2158,8 @@ export default function boot() {
     const b = cab.buttons.find((x) => x.cap === hit);
     if (b) {
       b.press = 1;
+      if (b.credits) { showCredits(); return; }
+      creditsOn = false;
       // Every button loads ITS title. Falling through to "next" would make a
       // labelled panel a lie.
       select(b.project);
@@ -2016,6 +2232,7 @@ export default function boot() {
       }
     }
     shownIndex = i;
+    creditsOn = false;
     syncMedia();
   }
 
@@ -2334,6 +2551,15 @@ export default function boot() {
     doorAngle += doorVel * dt;
     cab.doorHinge.rotation.y = doorAngle;
 
+    // Sprites always turn to face the camera, which means every glow on the
+    // front of this machine was still visible with the machine turned round -
+    // the tube appeared to shine through its own back panel.
+    const front = !backToUs();
+    cab.screenGlow.visible = front;
+    cab.marqueeGlow.visible = front;
+    cab.screen.visible = front;
+    for (const b of cab.buttons) b.halo.visible = front;
+
     cab.screenUniforms.uTime.value = clock.t;
     cab.screenUniforms.uSwitch.value = Math.max(0, cab.screenUniforms.uSwitch.value - dt * 1.9);
     cab.screenGlow.material.opacity = 0.44 + Math.sin(clock.t * 2.2) * 0.05;
@@ -2392,6 +2618,7 @@ export default function boot() {
           m.dispose();
         }
       });
+      if (creditsTex) creditsTex.dispose();
       if (glowA) glowA.dispose();
       if (glowB) glowB.dispose();
       quadGeo.dispose();
