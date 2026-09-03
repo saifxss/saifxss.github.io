@@ -68,6 +68,27 @@ const DEPTH = 0.92; // PROFILE's deepest point, front to back
 const DECK = { a: 2, b: 3 }; // PROFILE[2] -> PROFILE[3], the deck surface
 const BEZEL_SEG = { a: 6, b: 7 }; // PROFILE[6] -> PROFILE[7], the monitor face
 
+// The control panel, as one table. The buttons and the legend printed under
+// them are both built from this, so a cap can never end up sitting over the
+// wrong label. `x` is across the deck, `s` is along it (0 at the front edge,
+// 1 at the back); the small variation in `s` across each row is the shallow
+// arc every real panel has, so the middle buttons sit a touch further back
+// than the outer ones and the hand falls onto them naturally.
+//
+// Eight positions: seven titles and CREDITS. That is a standard multi-game
+// layout, and it is the reason the row is 4+4 rather than the 3+3 a fighting
+// cabinet would carry.
+const DECK_BUTTONS = [
+  { x: -0.285, s: 0.60, tag: "01" },
+  { x: -0.095, s: 0.62, tag: "02" },
+  { x: 0.095, s: 0.62, tag: "03" },
+  { x: 0.285, s: 0.60, tag: "04" },
+  { x: -0.285, s: 0.31, tag: "05" },
+  { x: -0.095, s: 0.33, tag: "06" },
+  { x: 0.095, s: 0.33, tag: "07" },
+  { x: 0.285, s: 0.31, tag: "CR", credits: true },
+];
+
 const SCREEN_W = 1.14;
 const SCREEN_H = 0.82; // the capture is 16:9 and is cover-cropped to fit
 
@@ -230,8 +251,17 @@ function sideArtTexture() {
 }
 
 /** The printed overlay on the control deck: player labels and a centre split. */
-function deckArtTexture() {
-  return canvasTexture(1024, 480, (g, w, h) => {
+function deckArtTexture(labels) {
+  // The plate spans the deck from s = 0.02 to s = 0.98, so a control's
+  // position along the deck maps straight onto the canvas. Both the hardware
+  // and this legend read the same table, which is what keeps them aligned.
+  const S_LO = 0.02;
+  const S_SPAN = 0.96;
+
+  return canvasTexture(2048, 960, (g, w, h) => {
+    const cx = (x) => (x / 1.24 + 0.5) * w;
+    const cy = (sv) => (1 - (sv - S_LO) / S_SPAN) * h;
+
     const bg = g.createLinearGradient(0, 0, 0, h);
     bg.addColorStop(0, "#3a3149");
     bg.addColorStop(1, "#221d2c");
@@ -239,33 +269,39 @@ function deckArtTexture() {
     g.fillRect(0, 0, w, h);
 
     g.strokeStyle = "rgba(175,98,193,0.85)";
-    g.lineWidth = 8;
-    g.strokeRect(20, 18, w - 40, h - 36);
-    g.strokeStyle = "rgba(175,98,193,0.45)";
-    g.lineWidth = 5;
-    g.beginPath();
-    g.moveTo(w / 2, 46);
-    g.lineTo(w / 2, h - 46);
-    g.stroke();
+    g.lineWidth = 14;
+    g.strokeRect(30, 26, w - 60, h - 52);
 
-    // The bottom of this canvas is the FRONT edge of the deck, which is the
-    // only part of it the joystick base plates do not cover.
-    g.font = "800 92px Inter, system-ui, sans-serif";
-    g.letterSpacing = "10px";
-    g.textBaseline = "middle";
     g.textAlign = "center";
-    g.fillStyle = "rgba(240,237,230,0.68)";
-    g.fillText("1P", w * 0.13, h * 0.84);
-    g.fillText("2P", w * 0.87, h * 0.84);
+    g.textBaseline = "middle";
 
-    // Where the heels of two players' hands have sat for years. Faint, but it
-    // is the difference between a control panel and a rectangle.
-    for (const cx of [w * 0.22, w * 0.78]) {
-      const worn = g.createRadialGradient(cx, h * 0.62, 4, cx, h * 0.62, w * 0.13);
-      worn.addColorStop(0, "rgba(255,255,255,0.10)");
+    // A ring painted round each button position, the way a printed overlay
+    // marks out where the hardware lands. The NAMES do not go here: the deck
+    // is seen at too shallow an angle for anything word-sized, the back row
+    // would be occluded by the buttons in front of it, and the front row sits
+    // under the instruction plate. They go on the legend instead.
+    for (const b of labels) {
+      g.beginPath();
+      g.arc(cx(b.x), cy(b.s), 108, 0, Math.PI * 2);
+      g.strokeStyle = b.credits ? "rgba(255,196,92,0.5)" : "rgba(214,140,230,0.34)";
+      g.lineWidth = 5;
+      g.stroke();
+    }
+
+    // Player labels, out at the edges under the sticks where nothing else goes.
+    g.font = "800 96px Inter, system-ui, sans-serif";
+    g.letterSpacing = "10px";
+    g.fillStyle = "rgba(240,237,230,0.55)";
+    g.fillText("1P", cx(-0.52), cy(0.16));
+    g.fillText("2P", cx(0.52), cy(0.16));
+
+    // Where the heels of two players' hands have sat for years.
+    for (const hx of [-0.42, 0.42]) {
+      const worn = g.createRadialGradient(cx(hx), cy(0.3), 6, cx(hx), cy(0.3), w * 0.11);
+      worn.addColorStop(0, "rgba(255,255,255,0.09)");
       worn.addColorStop(1, "rgba(255,255,255,0)");
       g.fillStyle = worn;
-      g.fillRect(cx - w * 0.13, h * 0.62 - w * 0.13, w * 0.26, w * 0.26);
+      g.fillRect(cx(hx) - w * 0.11, cy(0.3) - w * 0.11, w * 0.22, w * 0.22);
     }
   });
 }
@@ -381,8 +417,18 @@ function poolTexture() {
  * way instantly next to painted wood. The lettering is engraved rather than
  * drawn - a light line under a dark one is all it takes to look cut in.
  */
-function instructionTagTexture() {
-  return canvasTexture(1024, 168, (g, w, h) => {
+function panelLegendTexture(entries) {
+  // What a multi-game cabinet actually carries: the list, laid out in the same
+  // grid as the buttons above it, so the fourth entry on the bottom row is the
+  // fourth button on the bottom row. It lives on the front lip of the deck,
+  // which is the one part of the panel the camera does not foreshorten into a
+  // sliver, so it is the only place a word can be read.
+  //
+  // Brushed steel rather than another printed panel: it is the part of the
+  // machine meant to look bolted on afterwards, and metal reads that way
+  // instantly next to painted wood. Lettering is engraved, not drawn - a light
+  // line sitting one pixel under a dark one is all that takes.
+  return canvasTexture(2048, 448, (g, w, h) => {
     const steel = g.createLinearGradient(0, 0, 0, h);
     steel.addColorStop(0, "#ced2da");
     steel.addColorStop(0.42, "#9aa0ab");
@@ -391,12 +437,11 @@ function instructionTagTexture() {
     g.fillStyle = steel;
     g.fillRect(0, 0, w, h);
 
-    // Brushing. Deterministic-ish scatter, drawn once at boot.
-    g.globalAlpha = 0.14;
-    for (let i = 0; i < 300; i++) {
+    g.globalAlpha = 0.13;
+    for (let i = 0; i < 340; i++) {
       const y = Math.random() * h;
       g.strokeStyle = Math.random() > 0.5 ? "#ffffff" : "#666c77";
-      g.lineWidth = Math.random() * 1.7;
+      g.lineWidth = Math.random() * 1.8;
       g.beginPath();
       g.moveTo(0, y);
       g.lineTo(w, y);
@@ -404,58 +449,62 @@ function instructionTagTexture() {
     }
     g.globalAlpha = 1;
 
-    // Pressed edge.
     g.strokeStyle = "rgba(255,255,255,0.5)";
-    g.lineWidth = 5;
-    g.strokeRect(4, 4, w - 8, h - 8);
+    g.lineWidth = 6;
+    g.strokeRect(5, 5, w - 10, h - 10);
     g.strokeStyle = "rgba(38,42,50,0.45)";
-    g.lineWidth = 3;
-    g.strokeRect(10, 10, w - 20, h - 20);
+    g.lineWidth = 4;
+    g.strokeRect(13, 13, w - 26, h - 26);
 
-    // Engraved lettering: the highlight sits one pixel BELOW the dark, which
-    // is what makes a cut look cut rather than embossed.
-    const label = "PUSH TO SELECT";
-    g.textAlign = "center";
-    g.textBaseline = "middle";
-    g.font = "700 58px ui-monospace, Menlo, monospace";
-    g.letterSpacing = "11px";
-    g.fillStyle = "rgba(255,255,255,0.55)";
-    g.fillText(label, w / 2, h / 2 + 3);
-    g.fillStyle = "#2b2f38";
-    g.fillText(label, w / 2, h / 2);
-
-    // Direction arrows, drawn as paths so no font has to own the glyphs.
-    const arrow = (cx, dir) => {
-      const sz = 26;
-      for (const [dy, fill] of [[3, "rgba(255,255,255,0.55)"], [0, "#2b2f38"]]) {
-        g.fillStyle = fill;
-        g.beginPath();
-        g.moveTo(cx + dir * sz, h / 2 - sz + dy);
-        g.lineTo(cx + dir * sz, h / 2 + sz + dy);
-        g.lineTo(cx - dir * sz * 0.8, h / 2 + dy);
-        g.closePath();
-        g.fill();
-      }
-    };
-    arrow(w * 0.11, 1);
-    arrow(w * 0.89, -1);
-
-    // Screws, one per corner.
-    for (const [x, y] of [[46, 40], [w - 46, 40], [46, h - 40], [w - 46, h - 40]]) {
-      const r = g.createRadialGradient(x - 3, y - 3, 1, x, y, 15);
+    for (const [x, y] of [[46, 46], [w - 46, 46], [46, h - 46], [w - 46, h - 46]]) {
+      const r = g.createRadialGradient(x - 3, y - 3, 1, x, y, 16);
       r.addColorStop(0, "#e6e9ee");
       r.addColorStop(1, "#6f757f");
       g.fillStyle = r;
       g.beginPath();
-      g.arc(x, y, 14, 0, Math.PI * 2);
+      g.arc(x, y, 15, 0, Math.PI * 2);
       g.fill();
       g.strokeStyle = "rgba(35,38,45,0.8)";
-      g.lineWidth = 3.5;
+      g.lineWidth = 4;
       g.beginPath();
-      g.moveTo(x - 8, y - 4);
-      g.lineTo(x + 8, y + 4);
+      g.moveTo(x - 9, y - 4);
+      g.lineTo(x + 9, y + 4);
       g.stroke();
     }
+
+    // Engraved, in the button grid's own order.
+    const colW = (w - 150) / 4;
+    g.textBaseline = "middle";
+    entries.forEach((e, i) => {
+      const col = i % 4;
+      const row = i < 4 ? 0 : 1;
+      const x0 = 75 + col * colW;
+      const y = row === 0 ? h * 0.32 : h * 0.7;
+
+      const cut = (text, font, colour, tx) => {
+        g.font = font;
+        g.fillStyle = "rgba(255,255,255,0.5)";
+        g.fillText(text, tx, y + 3);
+        g.fillStyle = colour;
+        g.fillText(text, tx, y);
+      };
+
+      g.textAlign = "left";
+      g.letterSpacing = "2px";
+      cut(e.tag, "800 56px ui-monospace, Menlo, monospace",
+          e.credits ? "#6d4a12" : "#2b2f38", x0);
+
+      // Shrink the name until it fits its column rather than letting it run
+      // into the next one. Long titles are the normal case, not the exception.
+      let size = 52;
+      g.letterSpacing = "1px";
+      for (; size > 26; size -= 2) {
+        g.font = "700 " + size + "px ui-monospace, Menlo, monospace";
+        if (g.measureText(e.name).width < colW - 130) break;
+      }
+      cut(e.name, "700 " + size + "px ui-monospace, Menlo, monospace",
+          e.credits ? "#6d4a12" : "#2b2f38", x0 + 96);
+    });
   });
 }
 
@@ -676,7 +725,23 @@ const SCREEN_FRAG = `
  * The cabinet, centred on X, standing on y = 0, front face at z = 0.
  * Returns the group plus the parts the rest of the module animates.
  */
+/**
+ * The eight entries printed on the panel legend, read off the page's own title
+ * buttons. Keeping a copy in here would be a second list to forget to update.
+ */
+function panelLegend() {
+  const names = [...document.querySelectorAll(".cab-btn .cab-label")].map((n) =>
+    n.textContent.trim().toUpperCase()
+  );
+  return DECK_BUTTONS.map((b, i) => ({
+    tag: b.tag,
+    credits: !!b.credits,
+    name: b.credits ? "CREDITS" : (names[i] || "-"),
+  }));
+}
+
 function buildCabinet() {
+  const legend = panelLegend();
   const group = new THREE.Group();
 
   // Body: the profile extruded across the cabinet's width, then turned so the
@@ -860,7 +925,7 @@ function buildCabinet() {
   // and the hardware reads as floating.
   const deckPlate = new THREE.Mesh(
     new THREE.PlaneGeometry(1.24, 0.58),
-    new THREE.MeshStandardMaterial({ map: deckArtTexture(), roughness: 0.42, metalness: 0.0 })
+    new THREE.MeshStandardMaterial({ map: deckArtTexture(DECK_BUTTONS), roughness: 0.42, metalness: 0.0 })
   );
   const plateAt = onDeck(0.5, 0.006);
   deckPlate.position.set(0, plateAt.y, plateAt.z);
@@ -869,14 +934,14 @@ function buildCabinet() {
   // Screwed to the front strip of the deck, ahead of the joystick bases -
   // which sit from about 0.22 along it, so this clears them.
   const tag = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.66, 0.108),
+    new THREE.PlaneGeometry(1.06, 0.166),
     new THREE.MeshStandardMaterial({
-      map: instructionTagTexture(),
+      map: panelLegendTexture(legend),
       roughness: 0.34,
       metalness: 0.72,
     })
   );
-  const tagAt = onDeck(0.13, 0.012);
+  const tagAt = onDeck(0.135, 0.012);
   tag.position.set(0, tagAt.y, tagAt.z);
   tag.rotation.x = -deckFace;
   group.add(tag);
@@ -932,40 +997,48 @@ function buildCabinet() {
   const btnGeo = new THREE.CylinderGeometry(0.046, 0.046, 0.03, 24);
   const ringGeo = new THREE.CylinderGeometry(0.057, 0.057, 0.012, 24);
   const btnColors = [0xf5a623, 0x14b87a, 0xe0245e];
-  for (const side of [-1, 1]) {
-    [0.32, 0.21, 0.11].forEach((x, i) => {
-      const at = onDeck([0.3, 0.42, 0.47][i], 0.014);
-      const holder = new THREE.Group();
-      holder.position.set(side * x, at.y, at.z);
-      holder.rotation.x = deckTilt;
+  // CREDITS gets amber, the way a real coin/start control is set apart from
+  // the play buttons beside it.
+  const CREDITS_COLOR = 0xffc45c;
 
-      const ring = new THREE.Mesh(ringGeo, chrome);
-      ring.position.y = 0.006;
-      holder.add(ring);
+  DECK_BUTTONS.forEach((spec, i) => {
+    const at = onDeck(spec.s, 0.014);
+    const holder = new THREE.Group();
+    holder.position.set(spec.x, at.y, at.z);
+    holder.rotation.x = deckTilt;
 
-      const color = btnColors[i];
-      const cap = new THREE.Mesh(
-        btnGeo,
-        new THREE.MeshStandardMaterial({ color, roughness: 0.3, envMapIntensity: 0.4, emissive: color, emissiveIntensity: 0.06 })
-      );
-      cap.position.y = 0.026;
-      cap.userData.hit = "button";
-      holder.add(cap);
+    const ring = new THREE.Mesh(ringGeo, chrome);
+    ring.position.y = 0.006;
+    holder.add(ring);
 
-      const halo = new THREE.Sprite(
-        new THREE.SpriteMaterial({ map: glow, color, blending: THREE.AdditiveBlending, opacity: 0, depthWrite: false })
-      );
-      halo.scale.set(0.24, 0.24, 1);
-      halo.position.y = 0.04;
-      holder.add(halo);
+    const color = spec.credits ? CREDITS_COLOR : btnColors[i % btnColors.length];
+    const cap = new THREE.Mesh(
+      btnGeo,
+      new THREE.MeshStandardMaterial({ color, roughness: 0.3, envMapIntensity: 0.4, emissive: color, emissiveIntensity: 0.06 })
+    );
+    cap.position.y = 0.026;
+    cap.userData.hit = "button";
+    holder.add(cap);
 
-      cap.layers.enable(GLOW_LAYER);
-      group.add(holder);
-      // Normalised 0..1 across the deck, left to right, so the attract sweep
-      // can run in screen order rather than in the order they were built.
-      buttons.push({ cap, halo, press: 0, restY: 0.026, nx: (side * x + WIDTH / 2) / WIDTH });
+    const halo = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: glow, color, blending: THREE.AdditiveBlending, opacity: 0, depthWrite: false })
+    );
+    halo.scale.set(0.24, 0.24, 1);
+    halo.position.y = 0.04;
+    holder.add(halo);
+
+    cap.layers.enable(GLOW_LAYER);
+    group.add(holder);
+    // `project` is which title this button loads; CREDITS loads none.
+    // `nx` is where it sits across the deck, so the attract sweep can run in
+    // screen order rather than in the order they were built.
+    buttons.push({
+      cap, halo, press: 0, restY: 0.026,
+      nx: (spec.x + WIDTH / 2) / WIDTH,
+      project: spec.credits ? -1 : i,
+      credits: !!spec.credits,
     });
-  }
+  });
 
   // ── the ground ──
   // Laid flat at the cabinet's feet. Seen at the shallow angle the camera
@@ -1211,7 +1284,7 @@ export default function boot() {
         // to stand: the machine fades up on approach instead.
         ? { x: vw * 0.5, y: vh * 0.5, h: zoom.h * 0.7, ry: CENTRE_YAW, rx: 0.02, op: 0 }
         : { x: vw * 0.775, y: vh * 0.54, h: vh * 0.66, ry: -0.42, rx: 0.05, op: 1 },
-      { x: vw * 0.5, y: zoom.y, h: zoom.h, ry: CENTRE_YAW, rx: 0.02, op: 1 },
+      { x: vw * 0.5, y: zoom.y, h: zoom.h, ry: CENTRE_YAW, rx: 0.15, op: 1 },
       { x: cornerX, y: cornerY, h: cornerH, ry: CORNER_YAW, rx: 0.03, op: 1 },
       // Out with the section: down a little, smaller, under a fade.
       { x: cornerX, y: cornerY + vh * 0.12, h: cornerH * 0.88, ry: CORNER_YAW, rx: 0.03, op: 0 },
@@ -1242,8 +1315,89 @@ export default function boot() {
     return badges.join("  \u00b7  ");
   }
 
+  // ── CREDITS ──
+  // The amber button does not load a title: it rolls the career instead, read
+  // off the experience section so the two can never disagree. Built once, on
+  // the first press, because most visitors never ask for it.
+  let creditsTex = null;
+
+  function buildCredits() {
+    const rows = [];
+    const roles = document.querySelector("#experience .roles");
+    if (roles) {
+      for (const row of roles.children) {
+        const lines = (row.innerText || "").split(/\r?\n/).map((t) => t.trim()).filter(Boolean);
+        if (lines.length) rows.push(lines);
+      }
+    }
+    return canvasTexture(1024, 736, (g, w, h) => {
+      g.fillStyle = "#0a0910";
+      g.fillRect(0, 0, w, h);
+
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.font = "800 62px ui-monospace, Menlo, monospace";
+      g.letterSpacing = "14px";
+      g.fillStyle = hex(MAGENTA_HI);
+      g.fillText("CREDITS", w / 2, 86);
+
+      g.strokeStyle = "rgba(214,140,230,0.35)";
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(w * 0.16, 132);
+      g.lineTo(w * 0.84, 132);
+      g.stroke();
+
+      let y = 196;
+      for (const lines of rows.slice(0, 5)) {
+        g.textAlign = "left";
+        g.font = "700 42px ui-monospace, Menlo, monospace";
+        g.letterSpacing = "3px";
+        g.fillStyle = "rgba(240,237,230,0.94)";
+        g.fillText(lines[0].toUpperCase(), w * 0.11, y);
+
+        if (lines[1]) {
+          g.font = "500 30px ui-monospace, Menlo, monospace";
+          g.letterSpacing = "5px";
+          g.fillStyle = "rgba(214,140,230,0.8)";
+          g.fillText(lines[1].toUpperCase(), w * 0.11, y + 46);
+        }
+        if (lines[2]) {
+          g.textAlign = "right";
+          g.font = "500 28px ui-monospace, Menlo, monospace";
+          g.fillStyle = "rgba(240,237,230,0.45)";
+          g.fillText(lines[2].toUpperCase(), w * 0.89, y);
+        }
+        y += 118;
+      }
+
+      g.textAlign = "center";
+      g.font = "600 26px ui-monospace, Menlo, monospace";
+      g.letterSpacing = "8px";
+      g.fillStyle = "rgba(240,237,230,0.4)";
+      g.fillText("PRESS ANY TITLE TO RESUME", w / 2, h - 44);
+    });
+  }
+
+  function showCredits() {
+    if (!creditsTex) creditsTex = buildCredits();
+    releaseMedia();
+    creditsOn = true;
+    cab.setTitle("Credits", "Experience");
+    cab.screenUniforms.uMediaAspect.value = 1024 / 736;
+    cab.screenUniforms.uMap.value = creditsTex;
+    cab.screenUniforms.uHasMap.value = 1;
+    cab.screenUniforms.uSwitch.value = 1;
+  }
+
+  function leaveCredits() {
+    if (!creditsOn) return;
+    creditsOn = false;
+    syncMedia();
+  }
+
   function releaseMedia() {
-    if (mediaTex) mediaTex.dispose();
+    if (mediaTex && mediaTex !== creditsTex) mediaTex.dispose();
     mediaTex = null;
     if (mediaEl && mediaEl.parentNode === src) mediaEl.remove();
     mediaEl = null;
@@ -1341,6 +1495,17 @@ export default function boot() {
     a.show(a.index + delta);
   }
 
+  /** Load a specific title, the way pressing its button on a real cabinet does. */
+  function select(index) {
+    const a = api();
+    if (!a || index < 0 || index >= a.count) return;
+    a.show(index);
+  }
+
+  // CREDITS is a mode, not a title: the tube leaves the reel and rolls the
+  // career instead. Held until another button takes the machine back.
+  let creditsOn = false;
+
   function onMove(ev) {
     pointer.x = (ev.clientX / vw) * 2 - 1;
     pointer.y = -(ev.clientY / vh) * 2 + 1;
@@ -1368,9 +1533,18 @@ export default function boot() {
   /** Work whichever control was hit, without caring how it was reached. */
   function fire(hit) {
     const b = cab.buttons.find((x) => x.cap === hit);
-    if (b) b.press = 1;
+    if (b) {
+      b.press = 1;
+      if (b.credits) { showCredits(); return; }
+      leaveCredits();
+      // Every button loads ITS title. Falling through to "next" would make a
+      // labelled panel a lie.
+      select(b.project);
+      return;
+    }
     const j = cab.joysticks.find((x) => x.ball === hit);
     if (j) { j.target = 0.9; j.hold = 0.14; }
+    leaveCredits();
     step(1);
   }
 
@@ -1390,11 +1564,7 @@ export default function boot() {
       dragFrom = ev.clientX;
       dragFired = false;
     } else {
-      const b = cab.buttons.find((x) => x.cap === hit);
-      if (b) {
-        b.press = 1;
-        step(1);
-      }
+      fire(hit);
     }
   }
 
@@ -1440,6 +1610,7 @@ export default function boot() {
       }
     }
     shownIndex = i;
+    creditsOn = false;
     syncMedia();
   }
 
@@ -1805,6 +1976,7 @@ export default function boot() {
           m.dispose();
         }
       });
+      if (creditsTex) creditsTex.dispose();
       if (glowA) glowA.dispose();
       if (glowB) glowB.dispose();
       quadGeo.dispose();
