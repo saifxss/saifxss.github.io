@@ -11,3 +11,6 @@ Disallow: /legacy/
 Disallow: /bundle/
 
 Sitemap: https://saifxss.github.io/sitemap.xml
+
+# The rebuilt site, parked here while it is finished. Not the front door yet.
+Disallow: /preview.html
