@@ -79,15 +79,20 @@ const BEZEL_SEG = { a: 6, b: 7 }; // PROFILE[6] -> PROFILE[7], the monitor face
 // layout, and it is the reason the row is 4+4 rather than the 3+3 a fighting
 // cabinet would carry.
 const DECK_BUTTONS = [
-  { x: -0.285, s: 0.60, tag: "01" },
-  { x: -0.095, s: 0.62, tag: "02" },
-  { x: 0.095, s: 0.62, tag: "03" },
-  { x: 0.285, s: 0.60, tag: "04" },
-  { x: -0.285, s: 0.31, tag: "05" },
-  { x: -0.095, s: 0.33, tag: "06" },
-  { x: 0.095, s: 0.33, tag: "07" },
-  { x: 0.285, s: 0.31, tag: "CR", credits: true },
+  { x: -0.27, s: 0.655, tag: "01" },
+  { x: -0.09, s: 0.675, tag: "02" },
+  { x: 0.09, s: 0.675, tag: "03" },
+  { x: 0.27, s: 0.655, tag: "04" },
+  { x: -0.18, s: 0.435, tag: "05" },
+  { x: 0.0, s: 0.45, tag: "06" },
+  { x: 0.18, s: 0.435, tag: "07" },
 ];
+
+// CREDITS is not one of the seven. It is a different KIND of control - it does
+// not load a title, it changes what the machine is doing - so it gets the shape
+// a cabinet gives its coin and start controls: a long rectangle, off to the
+// side, in amber. Front right, under the 2P stick, where a start button lives.
+const CREDITS_BUTTON = { x: 0.4, s: 0.15, w: 0.33, d: 0.082 };
 
 const SCREEN_W = 1.14;
 const SCREEN_H = 0.82; // the capture is 16:9 and is cover-cropped to fit
@@ -101,6 +106,11 @@ const LIFT = BEVEL + 0.014;
 // Objects on this layer are ALSO drawn into the bloom pass. Everything that
 // is supposed to emit light says so by joining it; nothing else needs to know.
 const GLOW_LAYER = 1;
+
+// Taped inside the service door. Left empty until there is a real handle to
+// put here: the door still opens, and the card behind it falls back to the
+// links the page already carries rather than showing a placeholder.
+const DISCORD = "";
 
 const CAM_Z = 7.4;
 const FOV = 30;
@@ -268,32 +278,78 @@ function deckArtTexture(labels) {
     g.fillStyle = bg;
     g.fillRect(0, 0, w, h);
 
-    g.strokeStyle = "rgba(175,98,193,0.85)";
-    g.lineWidth = 14;
+    g.strokeStyle = "rgba(175,98,193,0.42)";
+    g.lineWidth = 10;
     g.strokeRect(30, 26, w - 60, h - 52);
 
     g.textAlign = "center";
     g.textBaseline = "middle";
 
-    // A ring painted round each button position, the way a printed overlay
-    // marks out where the hardware lands. The NAMES do not go here: the deck
-    // is seen at too shallow an angle for anything word-sized, the back row
-    // would be occluded by the buttons in front of it, and the front row sits
-    // under the instruction plate. They go on the legend instead.
+    // A ring painted round each button position, and the title it loads
+    // printed clear of it - above the back row, below the front row, so the
+    // two never write into each other. The zoom looks down at the deck now,
+    // which is what finally made lettering this size worth printing.
     for (const b of labels) {
       g.beginPath();
-      g.arc(cx(b.x), cy(b.s), 108, 0, Math.PI * 2);
-      g.strokeStyle = b.credits ? "rgba(255,196,92,0.5)" : "rgba(214,140,230,0.34)";
+      g.arc(cx(b.x), cy(b.s), 104, 0, Math.PI * 2);
+      g.strokeStyle = "rgba(214,140,230,0.34)";
       g.lineWidth = 5;
       g.stroke();
+
+      const above = b.s > 0.55;
+      const ly = cy(b.s + (above ? 0.175 : -0.16));
+      const name = (b.name || "").toUpperCase();
+      if (!name) continue;
+
+      // Buttons are 0.18 apart, which is 297px here, so a name has to live
+      // inside 250 to keep a gap from its neighbour. These are real titles and
+      // several do not: rather than shrink "THE AMAZING SANIBOY" until it is
+      // unreadable, it gets broken over two lines and stays legible.
+      const MAXW = 250;
+      g.letterSpacing = "1px";
+      const fits = (text, px) => {
+        g.font = "700 " + px + "px ui-monospace, Menlo, monospace";
+        return g.measureText(text).width <= MAXW;
+      };
+
+      let lines = [name];
+      let size = 54;
+      while (size > 34 && !fits(name, size)) size -= 2;
+      if (!fits(name, size)) {
+        // Break at the word boundary nearest the middle, so neither line is a
+        // stub.
+        const words = name.split(" ");
+        let best = 1;
+        let bestGap = Infinity;
+        for (let k = 1; k < words.length; k++) {
+          const gap = Math.abs(words.slice(0, k).join(" ").length - words.slice(k).join(" ").length);
+          if (gap < bestGap) { bestGap = gap; best = k; }
+        }
+        lines = words.length > 1
+          ? [words.slice(0, best).join(" "), words.slice(best).join(" ")]
+          : [name];
+        size = 46;
+        while (size > 26 && !lines.every((l) => fits(l, size))) size -= 2;
+      }
+
+      g.font = "700 " + size + "px ui-monospace, Menlo, monospace";
+      const tw = Math.max(...lines.map((l) => g.measureText(l).width));
+      const th = size * (lines.length === 2 ? 2.1 : 1.24);
+      g.fillStyle = "rgba(9,8,12,0.66)";
+      g.fillRect(cx(b.x) - tw / 2 - 12, ly - th / 2, tw + 24, th);
+      g.fillStyle = "#f2efe8";
+      lines.forEach((l, k) => {
+        const dy = lines.length === 2 ? (k === 0 ? -size * 0.5 : size * 0.5) : 0;
+        g.fillText(l, cx(b.x), ly + dy + 2);
+      });
     }
 
-    // Player labels, out at the edges under the sticks where nothing else goes.
-    g.font = "800 96px Inter, system-ui, sans-serif";
-    g.letterSpacing = "10px";
-    g.fillStyle = "rgba(240,237,230,0.55)";
-    g.fillText("1P", cx(-0.52), cy(0.16));
-    g.fillText("2P", cx(0.52), cy(0.16));
+    // The well the rectangular CREDITS control sits in.
+    const cw = (CREDITS_BUTTON.w / 1.24) * w;
+    const ch = (CREDITS_BUTTON.d / 0.96) * h;
+    g.strokeStyle = "rgba(255,196,92,0.55)";
+    g.lineWidth = 5;
+    g.strokeRect(cx(CREDITS_BUTTON.x) - cw / 2 - 12, cy(CREDITS_BUTTON.s) - ch / 2 - 12, cw + 24, ch + 24);
 
     // Where the heels of two players' hands have sat for years.
     for (const hx of [-0.42, 0.42]) {
@@ -417,18 +473,10 @@ function poolTexture() {
  * way instantly next to painted wood. The lettering is engraved rather than
  * drawn - a light line under a dark one is all it takes to look cut in.
  */
-function panelLegendTexture(entries) {
-  // What a multi-game cabinet actually carries: the list, laid out in the same
-  // grid as the buttons above it, so the fourth entry on the bottom row is the
-  // fourth button on the bottom row. It lives on the front lip of the deck,
-  // which is the one part of the panel the camera does not foreshorten into a
-  // sliver, so it is the only place a word can be read.
-  //
-  // Brushed steel rather than another printed panel: it is the part of the
-  // machine meant to look bolted on afterwards, and metal reads that way
-  // instantly next to painted wood. Lettering is engraved, not drawn - a light
-  // line sitting one pixel under a dark one is all that takes.
-  return canvasTexture(2048, 448, (g, w, h) => {
+function instructionPlateTexture() {
+  // The names moved onto the deck beside their buttons, so this goes back to
+  // being what a cabinet's front plate actually says: what the controls do.
+  return canvasTexture(1400, 250, (g, w, h) => {
     const steel = g.createLinearGradient(0, 0, 0, h);
     steel.addColorStop(0, "#ced2da");
     steel.addColorStop(0.42, "#9aa0ab");
@@ -438,7 +486,7 @@ function panelLegendTexture(entries) {
     g.fillRect(0, 0, w, h);
 
     g.globalAlpha = 0.13;
-    for (let i = 0; i < 340; i++) {
+    for (let i = 0; i < 260; i++) {
       const y = Math.random() * h;
       g.strokeStyle = Math.random() > 0.5 ? "#ffffff" : "#666c77";
       g.lineWidth = Math.random() * 1.8;
@@ -456,55 +504,25 @@ function panelLegendTexture(entries) {
     g.lineWidth = 4;
     g.strokeRect(13, 13, w - 26, h - 26);
 
-    for (const [x, y] of [[46, 46], [w - 46, 46], [46, h - 46], [w - 46, h - 46]]) {
-      const r = g.createRadialGradient(x - 3, y - 3, 1, x, y, 16);
+    for (const [x, y] of [[42, 42], [w - 42, 42], [42, h - 42], [w - 42, h - 42]]) {
+      const r = g.createRadialGradient(x - 3, y - 3, 1, x, y, 15);
       r.addColorStop(0, "#e6e9ee");
       r.addColorStop(1, "#6f757f");
       g.fillStyle = r;
       g.beginPath();
-      g.arc(x, y, 15, 0, Math.PI * 2);
+      g.arc(x, y, 14, 0, Math.PI * 2);
       g.fill();
-      g.strokeStyle = "rgba(35,38,45,0.8)";
-      g.lineWidth = 4;
-      g.beginPath();
-      g.moveTo(x - 9, y - 4);
-      g.lineTo(x + 9, y + 4);
-      g.stroke();
     }
 
-    // Engraved, in the button grid's own order.
-    const colW = (w - 150) / 4;
+    const label = "PRESS TO SWITCH THE GAME";
+    g.textAlign = "center";
     g.textBaseline = "middle";
-    entries.forEach((e, i) => {
-      const col = i % 4;
-      const row = i < 4 ? 0 : 1;
-      const x0 = 75 + col * colW;
-      const y = row === 0 ? h * 0.32 : h * 0.7;
-
-      const cut = (text, font, colour, tx) => {
-        g.font = font;
-        g.fillStyle = "rgba(255,255,255,0.5)";
-        g.fillText(text, tx, y + 3);
-        g.fillStyle = colour;
-        g.fillText(text, tx, y);
-      };
-
-      g.textAlign = "left";
-      g.letterSpacing = "2px";
-      cut(e.tag, "800 56px ui-monospace, Menlo, monospace",
-          e.credits ? "#6d4a12" : "#2b2f38", x0);
-
-      // Shrink the name until it fits its column rather than letting it run
-      // into the next one. Long titles are the normal case, not the exception.
-      let size = 52;
-      g.letterSpacing = "1px";
-      for (; size > 26; size -= 2) {
-        g.font = "700 " + size + "px ui-monospace, Menlo, monospace";
-        if (g.measureText(e.name).width < colW - 130) break;
-      }
-      cut(e.name, "700 " + size + "px ui-monospace, Menlo, monospace",
-          e.credits ? "#6d4a12" : "#2b2f38", x0 + 96);
-    });
+    g.font = "700 68px ui-monospace, Menlo, monospace";
+    g.letterSpacing = "9px";
+    g.fillStyle = "rgba(255,255,255,0.5)";
+    g.fillText(label, w / 2, h / 2 + 4);
+    g.fillStyle = "#2b2f38";
+    g.fillText(label, w / 2, h / 2);
   });
 }
 
@@ -575,51 +593,55 @@ function backPanelTexture(spec) {
     g.lineWidth = 4;
     g.strokeRect(90, vTop, w - 180, vH);
 
-    // The spec plate.
+    // The spec plate, as the kraft shipping label a cabinet actually leaves
+    // the factory with. Card takes ink far better than brushed steel does:
+    // dark on tan is the highest contrast anything on this machine gets, and
+    // this panel has more to say than any other.
     const pTop = vTop + vH + 60;
     const pH = 840;
-    const plate = g.createLinearGradient(0, pTop, 0, pTop + pH);
-    plate.addColorStop(0, "#cfd3db");
-    plate.addColorStop(0.5, "#9ba1ac");
-    plate.addColorStop(1, "#b9bfc9");
-    g.fillStyle = plate;
+    const card = g.createLinearGradient(0, pTop, 0, pTop + pH);
+    card.addColorStop(0, "#d8c39a");
+    card.addColorStop(0.5, "#cbb389");
+    card.addColorStop(1, "#c0a87e");
+    g.fillStyle = card;
     g.fillRect(70, pTop, w - 140, pH);
-    g.strokeStyle = "rgba(255,255,255,0.45)";
-    g.lineWidth = 5;
-    g.strokeRect(74, pTop + 4, w - 148, pH - 8);
-    g.strokeStyle = "rgba(38,42,50,0.4)";
-    g.lineWidth = 3;
-    g.strokeRect(84, pTop + 14, w - 168, pH - 28);
 
-    for (const [x, y] of [[112, pTop + 44], [w - 112, pTop + 44], [112, pTop + pH - 44], [w - 112, pTop + pH - 44]]) {
-      const r = g.createRadialGradient(x - 3, y - 3, 1, x, y, 15);
-      r.addColorStop(0, "#e6e9ee");
-      r.addColorStop(1, "#6f757f");
-      g.fillStyle = r;
-      g.beginPath();
-      g.arc(x, y, 14, 0, Math.PI * 2);
-      g.fill();
+    // Paper fibre.
+    g.globalAlpha = 0.5;
+    for (let i = 0; i < 2600; i++) {
+      const fx = 70 + Math.random() * (w - 140);
+      const fy = pTop + Math.random() * pH;
+      g.fillStyle = Math.random() > 0.5 ? "rgba(120,96,58,0.16)" : "rgba(255,244,214,0.2)";
+      g.fillRect(fx, fy, 2 + Math.random() * 5, 1.6);
     }
+    g.globalAlpha = 1;
 
-    const ink = "#23262d";
+    // Soft corners and the shadow of a label stuck on, not milled in.
+    g.strokeStyle = "rgba(92,72,40,0.4)";
+    g.lineWidth = 3;
+    g.strokeRect(70, pTop, w - 140, pH);
+    g.fillStyle = "rgba(0,0,0,0.16)";
+    g.fillRect(70, pTop + pH, w - 140, 8);
+
+    const ink = "#3a2c14";
     g.textBaseline = "middle";
     g.textAlign = "center";
-    g.font = "800 44px ui-monospace, Menlo, monospace";
+    g.font = "800 52px ui-monospace, Menlo, monospace";
     g.letterSpacing = "10px";
     g.fillStyle = ink;
-    g.fillText("SPECIFICATION", w / 2, pTop + 66);
-    g.strokeStyle = "rgba(35,38,45,0.35)";
+    g.fillText("SPECIFICATION", w / 2, pTop + 70);
+    g.strokeStyle = "rgba(58,44,20,0.4)";
     g.lineWidth = 3;
     g.beginPath();
-    g.moveTo(150, pTop + 100);
-    g.lineTo(w - 150, pTop + 100);
+    g.moveTo(140, pTop + 108);
+    g.lineTo(w - 140, pTop + 108);
     g.stroke();
 
     // Two columns, four rows: all eight groups the section carries.
     g.textAlign = "left";
     const colX = [132, w / 2 + 26];
-    const colTop = pTop + 150;
-    const rowH = 168;
+    const colTop = pTop + 162;
+    const rowH = 172;
     const colW = w / 2 - 172;
     spec.slice(0, 8).forEach((c, i) => {
       const x = colX[i % 2];
@@ -630,8 +652,8 @@ function backPanelTexture(spec) {
       // the left column ran straight into the right one.
       const head = c.head.toUpperCase();
       g.letterSpacing = "3px";
-      let hs = 27;
-      for (; hs > 16; hs -= 1) {
+      let hs = 33;
+      for (; hs > 19; hs -= 1) {
         g.font = "700 " + hs + "px ui-monospace, Menlo, monospace";
         if (g.measureText(head).width < colW) break;
       }
@@ -639,15 +661,15 @@ function backPanelTexture(spec) {
       g.fillText(head, x, y);
 
       g.letterSpacing = "0px";
-      g.fillStyle = "rgba(35,38,45,0.66)";
+      g.fillStyle = "rgba(58,44,20,0.78)";
       c.items.slice(0, 3).forEach((it, k) => {
         // Shrink anything that would run into the next column.
-        let size = 24;
-        for (; size > 15; size -= 1) {
+        let size = 29;
+        for (; size > 18; size -= 1) {
           g.font = "500 " + size + "px ui-monospace, Menlo, monospace";
           if (g.measureText(it).width < colW) break;
         }
-        g.fillText(it, x, y + 40 + k * 33);
+        g.fillText(it, x, y + 46 + k * 38);
       });
     });
 
@@ -666,6 +688,108 @@ function backPanelTexture(spec) {
     g.letterSpacing = "6px";
     g.fillStyle = "rgba(240,237,230,0.34)";
     g.fillText("SC-1 / TUNIS", w / 2, iTop + 168);
+  });
+}
+
+/** The service door, shut: plywood, a vent, a lock and a warning. */
+function doorTexture() {
+  return canvasTexture(768, 700, (g, w, h) => {
+    const ply = g.createLinearGradient(0, 0, 0, h);
+    ply.addColorStop(0, "#332c3f");
+    ply.addColorStop(1, "#241f2e");
+    g.fillStyle = ply;
+    g.fillRect(0, 0, w, h);
+
+    g.strokeStyle = "rgba(0,0,0,0.55)";
+    g.lineWidth = 8;
+    g.strokeRect(4, 4, w - 8, h - 8);
+    g.strokeStyle = "rgba(240,237,230,0.1)";
+    g.lineWidth = 3;
+    g.strokeRect(16, 16, w - 32, h - 32);
+
+    for (let y = 90; y < 230; y += 30) {
+      g.fillStyle = "rgba(0,0,0,0.7)";
+      g.fillRect(120, y, w - 240, 15);
+      g.fillStyle = "rgba(240,237,230,0.08)";
+      g.fillRect(120, y + 15, w - 240, 4);
+    }
+
+    // Cam lock.
+    const lx = w / 2;
+    const ly = h * 0.62;
+    const lock = g.createRadialGradient(lx - 4, ly - 4, 2, lx, ly, 40);
+    lock.addColorStop(0, "#d9dce2");
+    lock.addColorStop(1, "#636973");
+    g.fillStyle = lock;
+    g.beginPath();
+    g.arc(lx, ly, 38, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = "rgba(20,22,27,0.8)";
+    g.lineWidth = 9;
+    g.beginPath();
+    g.moveTo(lx - 20, ly);
+    g.lineTo(lx + 20, ly);
+    g.stroke();
+
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.font = "700 26px ui-monospace, Menlo, monospace";
+    g.letterSpacing = "6px";
+    g.fillStyle = "rgba(255,196,92,0.75)";
+    g.fillText("SERVICE ACCESS", w / 2, h * 0.8);
+    g.font = "500 20px ui-monospace, Menlo, monospace";
+    g.letterSpacing = "4px";
+    g.fillStyle = "rgba(240,237,230,0.3)";
+    g.fillText("NO USER SERVICEABLE PARTS", w / 2, h * 0.87);
+  });
+}
+
+/** What is taped inside it. The reason anyone would ever open the door. */
+function doorInsideTexture(handle) {
+  return canvasTexture(768, 700, (g, w, h) => {
+    g.fillStyle = "#0a0910";
+    g.fillRect(0, 0, w, h);
+
+    // Loom and board, so the inside is not just a flat card on nothing.
+    g.strokeStyle = "rgba(240,237,230,0.09)";
+    g.lineWidth = 7;
+    for (let i = 0; i < 5; i++) {
+      g.beginPath();
+      g.moveTo(40, 60 + i * 26);
+      g.bezierCurveTo(w * 0.4, 20 + i * 30, w * 0.6, 190 + i * 20, w - 40, 120 + i * 26);
+      g.stroke();
+    }
+
+    // A card taped to the inside of the door.
+    const cx = w / 2;
+    const cy = h * 0.6;
+    const cw = w * 0.78;
+    const ch = h * 0.42;
+    g.save();
+    g.translate(cx, cy);
+    g.rotate(-0.035);
+    g.fillStyle = "#e8dcc0";
+    g.fillRect(-cw / 2, -ch / 2, cw, ch);
+    g.fillStyle = "rgba(255,255,255,0.32)";
+    for (const ty of [-ch / 2, ch / 2 - 26]) g.fillRect(-52, ty - 12, 104, 26);
+
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillStyle = "#2a1f0c";
+    g.font = "700 30px ui-monospace, Menlo, monospace";
+    g.letterSpacing = "8px";
+    g.fillText("YOU FOUND IT", 0, -ch / 2 + 74);
+
+    g.font = "800 46px ui-monospace, Menlo, monospace";
+    g.letterSpacing = "3px";
+    g.fillStyle = "#7a2f8f";
+    g.fillText(handle || "github.com/saifxss", 0, 8);
+
+    g.font = "500 22px ui-monospace, Menlo, monospace";
+    g.letterSpacing = "5px";
+    g.fillStyle = "rgba(42,31,12,0.6)";
+    g.fillText(handle ? "DISCORD" : "SAY HELLO", 0, ch / 2 - 56);
+    g.restore();
   });
 }
 
@@ -856,13 +980,9 @@ const SCREEN_FRAG = `
  */
 function panelLegend() {
   const names = [...document.querySelectorAll(".cab-btn .cab-label")].map((n) =>
-    n.textContent.trim().toUpperCase()
+    n.textContent.trim()
   );
-  return DECK_BUTTONS.map((b, i) => ({
-    tag: b.tag,
-    credits: !!b.credits,
-    name: b.credits ? "CREDITS" : (names[i] || "-"),
-  }));
+  return DECK_BUTTONS.map((b, i) => ({ ...b, name: names[i] || "" }));
 }
 
 /**
@@ -1063,24 +1183,28 @@ function buildCabinet() {
   // and the hardware reads as floating.
   const deckPlate = new THREE.Mesh(
     new THREE.PlaneGeometry(1.24, 0.58),
-    new THREE.MeshStandardMaterial({ map: deckArtTexture(DECK_BUTTONS), roughness: 0.42, metalness: 0.0 })
+    new THREE.MeshStandardMaterial({ map: deckArtTexture(legend), roughness: 0.42, metalness: 0.0 })
   );
-  const plateAt = onDeck(0.5, 0.006);
+  // Clear of BEVEL, or the plate is buried inside the body it is printed on:
+  // the extrusion pushes the real surface out past the profile, so a decal
+  // lifted less than that never shows. The buttons sit higher again at 0.014,
+  // so they still stand proud of it.
+  const plateAt = onDeck(0.5, BEVEL + 0.004);
   deckPlate.position.set(0, plateAt.y, plateAt.z);
   deckPlate.rotation.x = -deckFace;
   group.add(deckPlate);
   // Screwed to the front strip of the deck, ahead of the joystick bases -
   // which sit from about 0.22 along it, so this clears them.
   const tag = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.06, 0.166),
+    new THREE.PlaneGeometry(0.62, 0.111),
     new THREE.MeshStandardMaterial({
-      map: panelLegendTexture(legend),
+      map: instructionPlateTexture(),
       roughness: 0.34,
       metalness: 0.72,
     })
   );
-  const tagAt = onDeck(0.135, 0.012);
-  tag.position.set(0, tagAt.y, tagAt.z);
+  const tagAt = onDeck(0.15, 0.012);
+  tag.position.set(-0.2, tagAt.y, tagAt.z);
   tag.rotation.x = -deckFace;
   group.add(tag);
 
@@ -1135,8 +1259,6 @@ function buildCabinet() {
   const btnGeo = new THREE.CylinderGeometry(0.046, 0.046, 0.03, 24);
   const ringGeo = new THREE.CylinderGeometry(0.057, 0.057, 0.012, 24);
   const btnColors = [0xf5a623, 0x14b87a, 0xe0245e];
-  // CREDITS gets amber, the way a real coin/start control is set apart from
-  // the play buttons beside it.
   const CREDITS_COLOR = 0xffc45c;
 
   DECK_BUTTONS.forEach((spec, i) => {
@@ -1149,7 +1271,7 @@ function buildCabinet() {
     ring.position.y = 0.006;
     holder.add(ring);
 
-    const color = spec.credits ? CREDITS_COLOR : btnColors[i % btnColors.length];
+    const color = btnColors[i % btnColors.length];
     const cap = new THREE.Mesh(
       btnGeo,
       new THREE.MeshStandardMaterial({ color, roughness: 0.3, envMapIntensity: 0.4, emissive: color, emissiveIntensity: 0.06 })
@@ -1173,10 +1295,55 @@ function buildCabinet() {
     buttons.push({
       cap, halo, press: 0, restY: 0.026,
       nx: (spec.x + WIDTH / 2) / WIDTH,
-      project: spec.credits ? -1 : i,
-      credits: !!spec.credits,
+      project: i,
+      credits: false,
     });
   });
+
+  // The rectangle. Same hit surface and same press as the round ones, so
+  // nothing downstream has to know it is a different shape.
+  {
+    const at = onDeck(CREDITS_BUTTON.s, 0.014);
+    const holder = new THREE.Group();
+    holder.position.set(CREDITS_BUTTON.x, at.y, at.z);
+    holder.rotation.x = deckTilt;
+
+    const bezel = new THREE.Mesh(
+      new THREE.BoxGeometry(CREDITS_BUTTON.w + 0.026, 0.012, CREDITS_BUTTON.d + 0.026),
+      chrome
+    );
+    bezel.position.y = 0.006;
+    holder.add(bezel);
+
+    const cap = new THREE.Mesh(
+      new THREE.BoxGeometry(CREDITS_BUTTON.w, 0.026, CREDITS_BUTTON.d),
+      new THREE.MeshStandardMaterial({
+        color: CREDITS_COLOR, roughness: 0.3, envMapIntensity: 0.4,
+        emissive: CREDITS_COLOR, emissiveIntensity: 0.06,
+      })
+    );
+    cap.position.y = 0.025;
+    cap.userData.hit = "button";
+    holder.add(cap);
+
+    const halo = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: glow, color: CREDITS_COLOR, blending: THREE.AdditiveBlending,
+        opacity: 0, depthWrite: false,
+      })
+    );
+    halo.scale.set(0.42, 0.24, 1);
+    halo.position.y = 0.04;
+    holder.add(halo);
+
+    cap.layers.enable(GLOW_LAYER);
+    group.add(holder);
+    buttons.push({
+      cap, halo, press: 0, restY: 0.025,
+      nx: (CREDITS_BUTTON.x + WIDTH / 2) / WIDTH,
+      project: -1, credits: true,
+    });
+  }
 
   // Bolted to the back wall, which the extrusion leaves at z = -DEPTH. Turned
   // to face away from the camera, so it is only ever seen once the machine has
@@ -1190,9 +1357,39 @@ function buildCabinet() {
       metalness: 0.1,
     })
   );
-  back.position.set(0, 1.66, -(DEPTH + LIFT));
+  back.position.set(0, 1.9, -(DEPTH + LIFT));
   back.rotation.y = Math.PI;
   group.add(back);
+
+  // The service door, below the spec label. Hinged on one edge so it swings
+  // rather than slides, and hit-tested like any other control - the raycast
+  // does not care that this one is the size of a panel.
+  const doorW = 0.92;
+  const doorH = 0.84;
+  const doorHinge = new THREE.Group();
+  doorHinge.position.set(-doorW / 2, 0.92, -(DEPTH + LIFT));
+  group.add(doorHinge);
+
+  const door = new THREE.Mesh(
+    new THREE.PlaneGeometry(doorW, doorH),
+    new THREE.MeshStandardMaterial({
+      map: doorTexture(), roughnessMap: grain, roughness: 0.7, metalness: 0.05,
+      side: THREE.DoubleSide,
+    })
+  );
+  door.position.x = doorW / 2;
+  door.rotation.y = Math.PI;
+  door.userData.hit = "door";
+  doorHinge.add(door);
+
+  // What is behind it, sitting flush on the back wall.
+  const inside = new THREE.Mesh(
+    new THREE.PlaneGeometry(doorW, doorH),
+    new THREE.MeshStandardMaterial({ map: doorInsideTexture(DISCORD), roughness: 0.8 })
+  );
+  inside.position.set(0, 0.92, -(DEPTH + LIFT * 0.4));
+  inside.rotation.y = Math.PI;
+  group.add(inside);
 
   // ── the ground ──
   // Laid flat at the cabinet's feet. Seen at the shallow angle the camera
@@ -1228,7 +1425,7 @@ function buildCabinet() {
   aura.position.set(0, 1.9, -1.4);
   group.add(aura);
 
-  return { group, screen, screenUniforms, screenGlow, joysticks, buttons, marquee, marqueeGlow, pool, setTitle };
+  return { group, screen, screenUniforms, screenGlow, joysticks, buttons, marquee, marqueeGlow, pool, doorHinge, setTitle };
 }
 
 // ── module ─────────────────────────────────────────────────────────────────
@@ -1446,7 +1643,8 @@ export default function boot() {
     // from the corner's +0.34 to a little past PI IS the flip; nothing has to
     // animate it. It stands off to the side rather than dead centre so the
     // section's own list stays readable beside it.
-    const backH = Math.min(vh * (narrow ? 0.6 : 0.74), narrow ? 460 : 700);
+    const backH = Math.min(vh * (narrow ? 0.36 : 0.5), narrow ? 240 : 410);
+    const backW = backH * spanPerHeight(CORNER_YAW);
 
     const stages = [
       narrow
@@ -1456,7 +1654,16 @@ export default function boot() {
         : { x: vw * 0.775, y: vh * 0.54, h: vh * 0.66, ry: -0.42, rx: 0.05, op: 1 },
       { x: vw * 0.5, y: zoom.y, h: zoom.h, ry: CENTRE_YAW, rx: 0.15, op: 1 },
       { x: cornerX, y: cornerY, h: cornerH, ry: CORNER_YAW, rx: 0.03, op: 1 },
-      { x: narrow ? vw * 0.5 : vw * 0.72, y: vh * 0.52, h: backH, ry: Math.PI + 0.26, rx: 0.06, op: 1 },
+      // STACK - the same corner it was already parked in, turned round.
+      // Keeping the position and changing only the yaw makes the flip read as
+      // the machine spinning on the spot, and it stops the back panel covering
+      // the very list it is quoting.
+      // Bleeding off the left edge rather than sitting beside it: the back
+      // panel is the widest thing the machine presents, and the page's own
+      // stack list starts 96px in. Letting a quarter of it hang off is what
+      // keeps the two out of each other's way.
+      { x: backW * 0.22, y: vh - (narrow ? 10 : 22) - backH / 2, h: backH,
+        ry: Math.PI + 0.3, rx: 0.05, op: 1 },
     ];
 
     // One keyframe per stop, and the exit past the last of them.
@@ -1705,8 +1912,17 @@ export default function boot() {
     }
   }
 
+  // The door's angle, chased the same way everything else on this machine is.
+  let doorOpen = false;
+  let doorAngle = 0;
+  let doorVel = 0;
+
   /** Work whichever control was hit, without caring how it was reached. */
   function fire(hit) {
+    if (hit.userData.hit === "door") {
+      doorOpen = !doorOpen;
+      return;
+    }
     const b = cab.buttons.find((x) => x.cap === hit);
     if (b) {
       b.press = 1;
@@ -2109,6 +2325,14 @@ export default function boot() {
       b.cap.material.emissiveIntensity = 0.06 + lit * 1.3;
       b.halo.material.opacity = lit * 0.6;
     }
+
+    // The door swings on a spring like the sticks do, so it has some weight
+    // to it rather than snapping between two states.
+    const doorTarget = doorOpen ? -2.1 : 0;
+    doorVel += (doorTarget - doorAngle) * 26 * dt;
+    doorVel *= Math.pow(0.0022, dt);
+    doorAngle += doorVel * dt;
+    cab.doorHinge.rotation.y = doorAngle;
 
     cab.screenUniforms.uTime.value = clock.t;
     cab.screenUniforms.uSwitch.value = Math.max(0, cab.screenUniforms.uSwitch.value - dt * 1.9);
