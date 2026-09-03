@@ -75,9 +75,8 @@ const BEZEL_SEG = { a: 6, b: 7 }; // PROFILE[6] -> PROFILE[7], the monitor face
 // arc every real panel has, so the middle buttons sit a touch further back
 // than the outer ones and the hand falls onto them naturally.
 //
-// Eight positions: seven titles and CREDITS. That is a standard multi-game
-// layout, and it is the reason the row is 4+4 rather than the 3+3 a fighting
-// cabinet would carry.
+// Seven positions, one per title, laid out 4+3 - the asymmetric row a
+// multi-game panel carries rather than the 3+3 a fighting cabinet would.
 const DECK_BUTTONS = [
   { x: -0.27, s: 0.655, tag: "01" },
   { x: -0.09, s: 0.675, tag: "02" },
@@ -87,12 +86,6 @@ const DECK_BUTTONS = [
   { x: 0.0, s: 0.45, tag: "06" },
   { x: 0.18, s: 0.435, tag: "07" },
 ];
-
-// CREDITS is not one of the seven. It is a different KIND of control - it does
-// not load a title, it changes what the machine is doing - so it gets the shape
-// a cabinet gives its coin and start controls: a long rectangle, off to the
-// side, in amber. Front right, under the 2P stick, where a start button lives.
-const CREDITS_BUTTON = { x: 0.4, s: 0.15, w: 0.33, d: 0.082 };
 
 const SCREEN_W = 1.14;
 const SCREEN_H = 0.82; // the capture is 16:9 and is cover-cropped to fit
@@ -344,12 +337,6 @@ function deckArtTexture(labels) {
       });
     }
 
-    // The well the rectangular CREDITS control sits in.
-    const cw = (CREDITS_BUTTON.w / 1.24) * w;
-    const ch = (CREDITS_BUTTON.d / 0.96) * h;
-    g.strokeStyle = "rgba(255,196,92,0.55)";
-    g.lineWidth = 5;
-    g.strokeRect(cx(CREDITS_BUTTON.x) - cw / 2 - 12, cy(CREDITS_BUTTON.s) - ch / 2 - 12, cw + 24, ch + 24);
 
     // Where the heels of two players' hands have sat for years.
     for (const hx of [-0.42, 0.42]) {
@@ -1259,8 +1246,6 @@ function buildCabinet() {
   const btnGeo = new THREE.CylinderGeometry(0.046, 0.046, 0.03, 24);
   const ringGeo = new THREE.CylinderGeometry(0.057, 0.057, 0.012, 24);
   const btnColors = [0xf5a623, 0x14b87a, 0xe0245e];
-  const CREDITS_COLOR = 0xffc45c;
-
   DECK_BUTTONS.forEach((spec, i) => {
     const at = onDeck(spec.s, 0.014);
     const holder = new THREE.Group();
@@ -1289,61 +1274,15 @@ function buildCabinet() {
 
     cap.layers.enable(GLOW_LAYER);
     group.add(holder);
-    // `project` is which title this button loads; CREDITS loads none.
-    // `nx` is where it sits across the deck, so the attract sweep can run in
-    // screen order rather than in the order they were built.
+    // `project` is which title this button loads. `nx` is where it sits
+    // across the deck, so the attract sweep can run in screen order rather
+    // than in the order they were built.
     buttons.push({
       cap, halo, press: 0, restY: 0.026,
       nx: (spec.x + WIDTH / 2) / WIDTH,
       project: i,
-      credits: false,
     });
   });
-
-  // The rectangle. Same hit surface and same press as the round ones, so
-  // nothing downstream has to know it is a different shape.
-  {
-    const at = onDeck(CREDITS_BUTTON.s, 0.014);
-    const holder = new THREE.Group();
-    holder.position.set(CREDITS_BUTTON.x, at.y, at.z);
-    holder.rotation.x = deckTilt;
-
-    const bezel = new THREE.Mesh(
-      new THREE.BoxGeometry(CREDITS_BUTTON.w + 0.026, 0.012, CREDITS_BUTTON.d + 0.026),
-      chrome
-    );
-    bezel.position.y = 0.006;
-    holder.add(bezel);
-
-    const cap = new THREE.Mesh(
-      new THREE.BoxGeometry(CREDITS_BUTTON.w, 0.026, CREDITS_BUTTON.d),
-      new THREE.MeshStandardMaterial({
-        color: CREDITS_COLOR, roughness: 0.3, envMapIntensity: 0.4,
-        emissive: CREDITS_COLOR, emissiveIntensity: 0.06,
-      })
-    );
-    cap.position.y = 0.025;
-    cap.userData.hit = "button";
-    holder.add(cap);
-
-    const halo = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: glow, color: CREDITS_COLOR, blending: THREE.AdditiveBlending,
-        opacity: 0, depthWrite: false,
-      })
-    );
-    halo.scale.set(0.42, 0.24, 1);
-    halo.position.y = 0.04;
-    holder.add(halo);
-
-    cap.layers.enable(GLOW_LAYER);
-    group.add(holder);
-    buttons.push({
-      cap, halo, press: 0, restY: 0.025,
-      nx: (CREDITS_BUTTON.x + WIDTH / 2) / WIDTH,
-      project: -1, credits: true,
-    });
-  }
 
   // Bolted to the back wall, which the extrusion leaves at z = -DEPTH. Turned
   // to face away from the camera, so it is only ever seen once the machine has
@@ -1435,8 +1374,8 @@ export default function boot() {
   // Where the corner rest gives out. The section after the projects, so the
   // machine keeps you company past them; the work section's own end is the
   // fallback if the page is ever reordered.
-  const restEl = document.getElementById("experience");
   const stackEl = document.getElementById("stack");
+  const contactEl = document.getElementById("contact");
   const shellEl = document.querySelector(".cab-shell");
   const screenEl = document.querySelector(".arcade-screen");
   const host = document.getElementById("a3d");
@@ -1517,10 +1456,8 @@ export default function boot() {
     const y = scrollY;
     const work = workEl.getBoundingClientRect();
     const shell = shellEl.getBoundingClientRect();
-    const afterEl = restEl && restEl.getBoundingClientRect();
 
     const workTop = work.top + y;
-    const workBottom = work.bottom + y;
     const shellTop = shell.top + y;
     contentLeft = shell.left;
 
@@ -1529,8 +1466,8 @@ export default function boot() {
       const r = el && el.getBoundingClientRect();
       return r ? { top: r.top + y, bottom: r.bottom + y } : null;
     };
-    const exp = sec(restEl);
     const stack = sec(stackEl);
+    const contact = sec(contactEl);
 
     stops.length = 0;
     // Beside the headline, from the top of the page.
@@ -1540,10 +1477,10 @@ export default function boot() {
     // tightly the machine is wider than the gap beside the work heading, so
     // the hold has to begin once the heading has left the frame.
     stops.push({ in: shellTop - vh * 0.02, out: shellTop + vh * 0.55 });
-    // Experience: parked bottom-left, rolling the credits.
-    if (exp) stops.push({ in: exp.top + vh * 0.05, out: exp.bottom - vh * 0.3 });
-    // Stack: turned round, showing the back panel that carries it.
+    // Stack: turned round, so the back panel that carries it is what you see.
     if (stack) stops.push({ in: stack.top + vh * 0.05, out: stack.bottom - vh * 0.2 });
+    // Contact: parked down in the bottom-left corner, out of the way.
+    if (contact) stops.push({ in: contact.top + vh * 0.05, out: contact.bottom - vh * 0.15 });
     fadeSpan = vh * 0.5;
 
     // A short page or a tall viewport can collapse these into each other.
@@ -1586,8 +1523,13 @@ export default function boot() {
   // off it to keep a lit edge and not flatten into a sprite.
   const CENTRE_YAW = -0.07;
   const CORNER_YAW = 0.34;
+  // Both terms are absolute: past a quarter turn cos goes negative, and a
+  // width cannot. Left signed, the stack pose - which is a yaw just past PI -
+  // asked for a negative height, and a negative scale does not merely shrink a
+  // model, it turns it inside out. The machine came back mirrored and the size
+  // of the room.
   const spanPerHeight = (yaw) =>
-    (WIDTH * Math.cos(yaw) + DEPTH * Math.abs(Math.sin(yaw))) / HEIGHT;
+    (WIDTH * Math.abs(Math.cos(yaw)) + DEPTH * Math.abs(Math.sin(yaw))) / HEIGHT;
 
   // The band the zoomed beat frames, in cabinet units off the floor: from just
   // under the deck's front edge (PROFILE[2] is at 0.97) to just over the top of
@@ -1629,22 +1571,28 @@ export default function boot() {
       CENTRE_YAW, vh * 0.5
     );
 
-    // EXPERIENCE - parked small in the bottom-left, rolling the credits. It
-    // sits clear of the copy where the gutter allows it and never hides more
-    // than about half of itself where it does not; a phone has 20px of gutter
-    // against the desktop's 44, which no placement rule can buy room out of,
-    // so there the machine is made smaller instead.
+    // CONTACT - parked small in the bottom-left corner, out of the way of the
+    // section that actually wants reading. It sits clear of the copy where the
+    // gutter allows it and never hides more than about half of itself where it
+    // does not; a phone has 20px of gutter against the desktop's 44, which no
+    // placement rule can buy room out of, so there it is made smaller instead.
     const cornerH = Math.min(vh * (narrow ? 0.2 : 0.32), narrow ? 150 : 250);
     const cornerW = cornerH * spanPerHeight(CORNER_YAW);
     const cornerX = Math.max(cornerW * 0.06, contentLeft - 8 - cornerW / 2);
     const cornerY = vh - (narrow ? 10 : 22) - cornerH / 2;
 
-    // STACK - turned round. The spring interpolates the yaw, so travelling
-    // from the corner's +0.34 to a little past PI IS the flip; nothing has to
-    // animate it. It stands off to the side rather than dead centre so the
-    // section's own list stays readable beside it.
-    const backH = Math.min(vh * (narrow ? 0.36 : 0.5), narrow ? 240 : 410);
-    const backW = backH * spanPerHeight(CORNER_YAW);
+    // STACK - turned round, and held at the same size the zoom is: this is
+    // the machine's other face, not a footnote to it. The spring interpolates
+    // yaw, so travelling from the work pose's -0.07 to a little past PI IS the
+    // rotation; nothing has to animate it.
+    // The WHOLE machine, not a band of it. frameBand exists to frame the
+    // screen and the control deck, and neither is on this side - pointing it
+    // at the back zooms hard onto a blank panel, which is exactly what it did.
+    const BACK_YAW = Math.PI + 0.26;
+    const backH = Math.min(
+      vh * (narrow ? 0.78 : 0.88),
+      (vw * (narrow ? 0.9 : 0.5)) / spanPerHeight(BACK_YAW)
+    );
 
     const stages = [
       narrow
@@ -1653,17 +1601,8 @@ export default function boot() {
         ? { x: vw * 0.5, y: vh * 0.5, h: zoom.h * 0.7, ry: CENTRE_YAW, rx: 0.02, op: 0 }
         : { x: vw * 0.775, y: vh * 0.54, h: vh * 0.66, ry: -0.42, rx: 0.05, op: 1 },
       { x: vw * 0.5, y: zoom.y, h: zoom.h, ry: CENTRE_YAW, rx: 0.15, op: 1 },
+      { x: vw * 0.5, y: vh * 0.5, h: backH, ry: BACK_YAW, rx: 0.06, op: 1 },
       { x: cornerX, y: cornerY, h: cornerH, ry: CORNER_YAW, rx: 0.03, op: 1 },
-      // STACK - the same corner it was already parked in, turned round.
-      // Keeping the position and changing only the yaw makes the flip read as
-      // the machine spinning on the spot, and it stops the back panel covering
-      // the very list it is quoting.
-      // Bleeding off the left edge rather than sitting beside it: the back
-      // panel is the widest thing the machine presents, and the page's own
-      // stack list starts 96px in. Letting a quarter of it hang off is what
-      // keeps the two out of each other's way.
-      { x: backW * 0.22, y: vh - (narrow ? 10 : 22) - backH / 2, h: backH,
-        ry: Math.PI + 0.3, rx: 0.05, op: 1 },
     ];
 
     // One keyframe per stop, and the exit past the last of them.
@@ -1697,89 +1636,8 @@ export default function boot() {
     return badges.join("  \u00b7  ");
   }
 
-  // ── CREDITS ──
-  // The amber button does not load a title: it rolls the career instead, read
-  // off the experience section so the two can never disagree. Built once, on
-  // the first press, because most visitors never ask for it.
-  let creditsTex = null;
-
-  function buildCredits() {
-    const rows = [];
-    const roles = document.querySelector("#experience .roles");
-    if (roles) {
-      for (const row of roles.children) {
-        const lines = (row.innerText || "").split(/\r?\n/).map((t) => t.trim()).filter(Boolean);
-        if (lines.length) rows.push(lines);
-      }
-    }
-    return canvasTexture(1024, 736, (g, w, h) => {
-      g.fillStyle = "#0a0910";
-      g.fillRect(0, 0, w, h);
-
-      g.textAlign = "center";
-      g.textBaseline = "middle";
-      g.font = "800 62px ui-monospace, Menlo, monospace";
-      g.letterSpacing = "14px";
-      g.fillStyle = hex(MAGENTA_HI);
-      g.fillText("CREDITS", w / 2, 86);
-
-      g.strokeStyle = "rgba(214,140,230,0.35)";
-      g.lineWidth = 3;
-      g.beginPath();
-      g.moveTo(w * 0.16, 132);
-      g.lineTo(w * 0.84, 132);
-      g.stroke();
-
-      let y = 196;
-      for (const lines of rows.slice(0, 5)) {
-        g.textAlign = "left";
-        g.font = "700 42px ui-monospace, Menlo, monospace";
-        g.letterSpacing = "3px";
-        g.fillStyle = "rgba(240,237,230,0.94)";
-        g.fillText(lines[0].toUpperCase(), w * 0.11, y);
-
-        if (lines[1]) {
-          g.font = "500 30px ui-monospace, Menlo, monospace";
-          g.letterSpacing = "5px";
-          g.fillStyle = "rgba(214,140,230,0.8)";
-          g.fillText(lines[1].toUpperCase(), w * 0.11, y + 46);
-        }
-        if (lines[2]) {
-          g.textAlign = "right";
-          g.font = "500 28px ui-monospace, Menlo, monospace";
-          g.fillStyle = "rgba(240,237,230,0.45)";
-          g.fillText(lines[2].toUpperCase(), w * 0.89, y);
-        }
-        y += 118;
-      }
-
-      g.textAlign = "center";
-      g.font = "600 26px ui-monospace, Menlo, monospace";
-      g.letterSpacing = "8px";
-      g.fillStyle = "rgba(240,237,230,0.4)";
-      g.fillText("PRESS ANY TITLE TO RESUME", w / 2, h - 44);
-    });
-  }
-
-  function showCredits() {
-    if (!creditsTex) creditsTex = buildCredits();
-    releaseMedia();
-    creditsOn = true;
-    cab.setTitle("Credits", "Experience");
-    cab.screenUniforms.uMediaAspect.value = 1024 / 736;
-    cab.screenUniforms.uMap.value = creditsTex;
-    cab.screenUniforms.uHasMap.value = 1;
-    cab.screenUniforms.uSwitch.value = 1;
-  }
-
-  function leaveCredits() {
-    if (!creditsOn) return;
-    creditsOn = false;
-    syncMedia();
-  }
-
   function releaseMedia() {
-    if (mediaTex && mediaTex !== creditsTex) mediaTex.dispose();
+    if (mediaTex) mediaTex.dispose();
     mediaTex = null;
     if (mediaEl && mediaEl.parentNode === src) mediaEl.remove();
     mediaEl = null;
@@ -1884,9 +1742,6 @@ export default function boot() {
     a.show(index);
   }
 
-  // CREDITS is a mode, not a title: the tube leaves the reel and rolls the
-  // career instead. Held until another button takes the machine back.
-  let creditsOn = false;
 
   function onMove(ev) {
     pointer.x = (ev.clientX / vw) * 2 - 1;
@@ -1926,8 +1781,6 @@ export default function boot() {
     const b = cab.buttons.find((x) => x.cap === hit);
     if (b) {
       b.press = 1;
-      if (b.credits) { showCredits(); return; }
-      leaveCredits();
       // Every button loads ITS title. Falling through to "next" would make a
       // labelled panel a lie.
       select(b.project);
@@ -1935,7 +1788,6 @@ export default function boot() {
     }
     const j = cab.joysticks.find((x) => x.ball === hit);
     if (j) { j.target = 0.9; j.hold = 0.14; }
-    leaveCredits();
     step(1);
   }
 
@@ -2001,7 +1853,6 @@ export default function boot() {
       }
     }
     shownIndex = i;
-    creditsOn = false;
     syncMedia();
   }
 
@@ -2188,11 +2039,6 @@ export default function boot() {
 
   // ── loop ──
   let opacity = 1;
-  // Which held pose the machine last settled on, so arriving somewhere can do
-  // something. Only the experience stop cares: the tube rolls the credits
-  // there without being asked, which is the whole point of parking it beside
-  // that section.
-  let atStop = -1;
   // The one device check the renderer makes for itself: everything else is
   // gated in the loader, but this is a cost decision, not a capability one.
   // Re-read on resize, so dragging a window across the breakpoint switches it
@@ -2213,17 +2059,8 @@ export default function boot() {
     const t = stage();
     const k = keyframes();
 
-    // CREDITS_STOP is the experience pose - index 2 whenever that section
-    // exists, which measure() guarantees by only pushing stops for sections it
-    // actually found.
     // Not `settled`: the spring already owns that name in this scope, and
     // shadowing it here made the spring's own assignment throw every frame.
-    const landed = Math.abs(t - Math.round(t)) < 0.02 ? Math.round(t) : -1;
-    if (landed !== atStop) {
-      atStop = landed;
-      if (atStop === 2 && stops.length > 2) showCredits();
-      else if (creditsOn) leaveCredits();
-    }
     const i = Math.min(Math.floor(t), k.length - 2);
     const f = smooth(clamp01(t - i));
     const A = k[i];
@@ -2392,7 +2229,6 @@ export default function boot() {
           m.dispose();
         }
       });
-      if (creditsTex) creditsTex.dispose();
       if (glowA) glowA.dispose();
       if (glowB) glowB.dispose();
       quadGeo.dispose();
