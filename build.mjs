@@ -3,7 +3,9 @@
 //   bundle/index.bundle.html   (pristine export — the only file you replace)
 //        |
 //        v  node build.mjs
-//   index.html   (generated, committed for GitHub Pages — the whole site)
+//   preview.html   (generated, committed for GitHub Pages — the whole site)
+//
+// index.html is a hand-written holding page and is NOT generated: see OUT_HTML.
 //
 // The export is a bundler-wrapped document: a loader unpacks a base64/gzip
 // manifest holding the real page. Editing that by hand is impractical and any
@@ -27,7 +29,14 @@ import { runInNewContext } from "node:vm";
 import { findBlock, createContext, renderTemplate } from "./prerender.mjs";
 
 const BUNDLE = "bundle/index.bundle.html";
-const OUT_HTML = "index.html";
+// The build no longer owns index.html. That file is a hand-written holding
+// page while the cabinet is being finished, so the site a recruiter lands on
+// is deliberate rather than half-rebuilt. The real site is generated beside it
+// and is what you open to work on: preview.html.
+//
+// To go live: swap the two files (preview.html becomes index.html) and point
+// this back at "index.html". Nothing else in this build cares about the name.
+const OUT_HTML = "preview.html";
 
 const SITE = "https://saifxss.github.io";
 const EMAIL = "chamakhiseif@gmail.com";

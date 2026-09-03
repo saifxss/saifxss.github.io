@@ -291,6 +291,14 @@ function deckArtTexture(labels) {
     // painted rings and a legend were all competing on a surface the camera
     // already foreshortens; the titles are printed on the keys themselves now,
     // which is both what a multi-game panel does and six fewer things to read.
+    // Which side is which, out by the sticks where nothing else goes.
+    g.font = "800 104px Inter, system-ui, sans-serif";
+    g.letterSpacing = "12px";
+    g.textAlign = "center";
+    g.fillStyle = "rgba(240,237,230,0.42)";
+    g.fillText("1P", cx(-0.5), cy(0.66));
+    g.fillText("2P", cx(0.5), cy(0.66));
+
     // The well the amber CREDITS control sits in, and what it is for. It is
     // the one thing on this deck that does not load a title, so it is marked
     // out rather than left to look like an eighth game.
@@ -426,59 +434,6 @@ function poolTexture() {
  * way instantly next to painted wood. The lettering is engraved rather than
  * drawn - a light line under a dark one is all it takes to look cut in.
  */
-function instructionPlateTexture() {
-  // The names moved onto the deck beside their buttons, so this goes back to
-  // being what a cabinet's front plate actually says: what the controls do.
-  return canvasTexture(1400, 250, (g, w, h) => {
-    const steel = g.createLinearGradient(0, 0, 0, h);
-    steel.addColorStop(0, "#ced2da");
-    steel.addColorStop(0.42, "#9aa0ab");
-    steel.addColorStop(0.58, "#868c98");
-    steel.addColorStop(1, "#bcc2cc");
-    g.fillStyle = steel;
-    g.fillRect(0, 0, w, h);
-
-    g.globalAlpha = 0.13;
-    for (let i = 0; i < 260; i++) {
-      const y = Math.random() * h;
-      g.strokeStyle = Math.random() > 0.5 ? "#ffffff" : "#666c77";
-      g.lineWidth = Math.random() * 1.8;
-      g.beginPath();
-      g.moveTo(0, y);
-      g.lineTo(w, y);
-      g.stroke();
-    }
-    g.globalAlpha = 1;
-
-    g.strokeStyle = "rgba(255,255,255,0.5)";
-    g.lineWidth = 6;
-    g.strokeRect(5, 5, w - 10, h - 10);
-    g.strokeStyle = "rgba(38,42,50,0.45)";
-    g.lineWidth = 4;
-    g.strokeRect(13, 13, w - 26, h - 26);
-
-    for (const [x, y] of [[42, 42], [w - 42, 42], [42, h - 42], [w - 42, h - 42]]) {
-      const r = g.createRadialGradient(x - 3, y - 3, 1, x, y, 15);
-      r.addColorStop(0, "#e6e9ee");
-      r.addColorStop(1, "#6f757f");
-      g.fillStyle = r;
-      g.beginPath();
-      g.arc(x, y, 14, 0, Math.PI * 2);
-      g.fill();
-    }
-
-    const label = "PRESS TO SWITCH THE GAME";
-    g.textAlign = "center";
-    g.textBaseline = "middle";
-    g.font = "700 68px ui-monospace, Menlo, monospace";
-    g.letterSpacing = "9px";
-    g.fillStyle = "rgba(255,255,255,0.5)";
-    g.fillText(label, w / 2, h / 2 + 4);
-    g.fillStyle = "#2b2f38";
-    g.fillText(label, w / 2, h / 2);
-  });
-}
-
 /**
  * The cabinet's surface, as a roughness map.
  *
@@ -1395,18 +1350,10 @@ function buildCabinet() {
   };
   // Screwed to the front strip of the deck, ahead of the joystick bases -
   // which sit from about 0.22 along it, so this clears them.
-  const tag = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.58, 0.098),
-    new THREE.MeshStandardMaterial({
-      map: instructionPlateTexture(),
-      roughness: 0.34,
-      metalness: 0.72,
-    })
-  );
-  const tagAt = onDeck(0.175, 0.012);
-  tag.position.set(-0.2, tagAt.y, tagAt.z);
-  tag.rotation.x = -deckFace;
-  group.add(tag);
+  // The instruction plate is gone. It said what the keys now say on their own
+  // faces, at a size the deck's foreshortening made hard to read, on the one
+  // strip of panel the eye reaches first. What a real deck carries there is
+  // which side is which - so that is what it carries.
 
   const joysticks = [];
   const buttons = [];
@@ -1697,12 +1644,15 @@ export default function boot() {
   // side so the front face, the side panel and the sloped deck all catch a
   // different amount of it - that separation is what gives the box its shape,
   // and it was missing while the key sat nearly head-on.
-  const key = new THREE.DirectionalLight(0xfff2e6, 4.2);
+  const key = new THREE.DirectionalLight(0xfff2e6, 4.6);
   key.position.set(4.4, 5.2, 3.6);
   scene.add(key);
 
-  // The magenta edge that ties the machine to the page's accent.
-  const rim = new THREE.DirectionalLight(MAGENTA_HI, 3.4);
+  // The magenta edge that ties the machine to the page's accent. It is a rim,
+  // not a wash: at 3.4 it was the brightest thing landing on the pale surfaces
+  // - the kraft spec card came back pink and the steel plates went lilac - and
+  // a rim light that repaints what it touches is not doing its job.
+  const rim = new THREE.DirectionalLight(MAGENTA_HI, 2.3);
   rim.position.set(-3.8, 1.8, -2.2);
   scene.add(rim);
 

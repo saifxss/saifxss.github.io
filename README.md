@@ -14,8 +14,19 @@ bundle/index.bundle.html   pristine Claude Design export  <- replace this
         |
         |  node build.mjs
         v
-index.html                 generated, committed — the whole site
+preview.html               generated, committed — the whole site
 ```
+
+**index.html is currently a hand-written holding page, not the site.** The
+cabinet is mid-rebuild, and a recruiter landing on a half-finished page is
+worse than landing on a deliberate one - so the front door is a short page
+carrying the name, the one-line pitch and the resume and contact links, marked
+`noindex` so a placeholder never becomes what this domain is known for. The
+real site is generated beside it as `preview.html`, which is also what you open
+to work on.
+
+To go live: swap the two files and point `OUT_HTML` in `build.mjs` back at
+`index.html`. Nothing else in the build cares about the name.
 
 `build.mjs` unpacks the bundle, applies every fix the raw export lacks —
 responsive breakpoints, SEO metadata, accessible contact links, keyboard focus
@@ -25,7 +36,7 @@ states — and then **renders the template to finished HTML**. Hand-editing
 The export is a client-side app: it downloads React and a template runtime,
 parses the page out of an `<x-dc>` block and renders it in the browser. That is
 not how this site ships. `prerender.mjs` runs the template at build time
-against the design's own logic class, so `index.html` is ordinary markup. No
+against the design's own logic class, so the generated page is ordinary markup. No
 React, no runtime, no `{{ }}` in the served page, and the site reads correctly
 with JavaScript switched off. The only script in the page itself is ~60 lines
 of vanilla JS for the cabinet and the scroll reveal; the 3D cabinet is a
@@ -283,7 +294,8 @@ from the same version tag and rerun the build.
 ```
 bundle/     pristine Claude Design export (build input)
 build.mjs   the build
-index.html  generated
+index.html  hand-written holding page (NOT generated)
+preview.html  generated - the real site
 prerender.mjs  the template renderer used by the build
 assets/     portrait.png
 gifs/       animated captures (override images/)
