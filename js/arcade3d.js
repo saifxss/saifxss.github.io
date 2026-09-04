@@ -291,13 +291,20 @@ function deckArtTexture(labels) {
     // painted rings and a legend were all competing on a surface the camera
     // already foreshortens; the titles are printed on the keys themselves now,
     // which is both what a multi-game panel does and six fewer things to read.
-    // Which side is which, out by the sticks where nothing else goes.
-    g.font = "800 104px Inter, system-ui, sans-serif";
-    g.letterSpacing = "12px";
-    g.textAlign = "center";
-    g.fillStyle = "rgba(240,237,230,0.42)";
-    g.fillText("1P", cx(-0.5), cy(0.66));
-    g.fillText("2P", cx(0.5), cy(0.66));
+    // There were 1P and 2P markings out by the sticks. They are gone, and this
+    // note is here so they do not come back a third time.
+    //
+    // Every place they can go is taken or hidden. Level with the sticks they
+    // are read through the ball, because the deck is seen from in front and a
+    // little above and a ball on its shaft rises up the picture over whatever
+    // is behind it. Outboard is where that same ball's image travels, so it is
+    // worse. In front of the sticks puts them under the base plates, and
+    // further forward still runs into the CREDITS well and its label.
+    //
+    // Which is the panel saying it is full. It already carries seven titles
+    // and a labelled CREDITS key; two more words of decoration is the same
+    // mistake as the instruction plate that used to sit above them, and the
+    // margin beside a stick is not a gap to fill - real panels leave it bare.
 
     // The well the amber CREDITS control sits in, and what it is for. It is
     // the one thing on this deck that does not load a title, so it is marked
@@ -551,14 +558,48 @@ function backPanelTexture(spec) {
     // takes four groups at nearly double the size instead - the same trade the
     // case notes make, for the same reason.
     g.textAlign = "left";
-    const colX = tightPlate ? [132, w / 2 + 26] : [132, w / 2 + 26];
-    const colTop = pTop + (tightPlate ? 210 : 176);
-    const rowH = tightPlate ? 330 : 196;
+    const colX = [132, w / 2 + 26];
+    // The phone metrics are tuned to a measured fit, not picked by eye: at the
+    // previous leading the last row - Education and Languages - overshot the
+    // bottom of the plate by 76px and was dropped, leaving a third of the
+    // plate blank underneath the rows that did fit. That 76px comes out of the
+    // leading and the gaps between rows, NOT off the top: taking it there ran
+    // the first row's headings straight into the SPECIFICATION title. The
+    // row-level fit check still drops a row whole if the wording ever grows
+    // past what is left.
+    const colTop = pTop + (tightPlate ? 150 : 176);
     const colW = w / 2 - 152;
-    spec.slice(0, tightPlate ? 6 : 10).forEach((c, i) => {
-      const x = colX[i % 2];
-      const y = colTop + Math.floor(i / 2) * rowH;
+    const headGap = tightPlate ? 50 : 44;
+    const size = tightPlate ? 36 : 26;
+    const lh = tightPlate ? 42 : 34;
+    const rowGap = tightPlate ? 16 : 26;
+    const plateFloor = pTop + pH - (tightPlate ? 20 : 26);
 
+    const fold = (text) => {
+      if (g.measureText(text).width <= colW) return [text];
+      const out = [];
+      let line = "";
+      for (const word of text.split(" ")) {
+        const next = line ? line + " " + word : word;
+        if (g.measureText(next).width > colW && line) { out.push(line); line = word; }
+        else line = next;
+      }
+      if (line) out.push(line);
+      return out.slice(0, 2);
+    };
+
+    // Measured before anything is drawn.
+    //
+    // Rows used to be a fixed height, and a group whose items wrap is taller
+    // than one whose items do not - so on a phone, where the column is narrow
+    // enough that nearly everything wraps, the overflow ran straight over the
+    // next row's heading. ARCHITECTURE & PATTERNS and PERFORMANCE & TOOLING
+    // were printed on top of each other.
+    //
+    // Laying it out first fixes both halves of that: a row is as tall as its
+    // longer half, and a row that will not fit on the plate is dropped whole
+    // rather than clipped through the middle of a line.
+    const groups = spec.slice(0, 10).map((c) => {
       // Headings are the long ones ("ARCHITECTURE & PATTERNS"), so they get
       // the same fit-to-column treatment as the items under them. Without it
       // the left column ran straight into the right one.
@@ -569,43 +610,52 @@ function backPanelTexture(spec) {
         g.font = "700 " + hs + "px ui-monospace, Menlo, monospace";
         if (g.measureText(head).width <= colW) break;
       }
-      g.fillStyle = ink;
-      g.fillText(head, x, y);
 
-      g.letterSpacing = "0px";
       // One size for the whole group, set by its longest line - fitting each
       // item on its own left a column of mixed sizes, which reads as a mistake
       // rather than as emphasis. Anything still too wide at that size wraps
       // instead of shrinking further: "Bachelor's in Video Game Development"
       // is a real entry, and squeezing it to fit made it the smallest thing on
       // the plate.
-      const items = c.items.slice(0, 3);
-      const size = tightPlate ? 40 : 26;
+      g.letterSpacing = "0px";
       g.font = "500 " + size + "px ui-monospace, Menlo, monospace";
-      const lh = tightPlate ? 54 : 34;
+      // A phone gets two entries per heading instead of three. The plate is
+      // the same fraction of a much smaller screen, and at three it ran out of
+      // room after six headings - which meant Education and Languages, the two
+      // at the end of the list, silently did not appear at all. Every heading
+      // present with its top two entries beats most headings complete and two
+      // missing, and the full lists are still in the page's own markup either
+      // way, which is what a reader with a screen reader or a crawler gets.
+      const lines = [];
+      for (const it of c.items.slice(0, tightPlate ? 2 : 3)) for (const l of fold(it)) lines.push(l);
+      return { head, hs, lines };
+    });
 
-      const fold = (text) => {
-        if (g.measureText(text).width <= colW) return [text];
-        const out = [];
-        let line = "";
-        for (const word of text.split(" ")) {
-          const next = line ? line + " " + word : word;
-          if (g.measureText(next).width > colW && line) { out.push(line); line = word; }
-          else line = next;
-        }
-        if (line) out.push(line);
-        return out.slice(0, 2);
-      };
+    let rowY = colTop;
+    for (let i = 0; i < groups.length; i += 2) {
+      const row = groups.slice(i, i + 2);
+      const tall = Math.max(...row.map((gr) => gr.lines.length));
+      if (rowY + headGap + tall * lh > plateFloor) break;
 
-      g.fillStyle = "rgba(58,44,20,0.78)";
-      let iy = y + (tightPlate ? 74 : 44);
-      for (const it of items) {
-        for (const line of fold(it)) {
+      row.forEach((gr, k) => {
+        const x = colX[k];
+        g.letterSpacing = tightPlate ? "1px" : "3px";
+        g.font = "700 " + gr.hs + "px ui-monospace, Menlo, monospace";
+        g.fillStyle = ink;
+        g.fillText(gr.head, x, rowY);
+
+        g.letterSpacing = "0px";
+        g.font = "500 " + size + "px ui-monospace, Menlo, monospace";
+        g.fillStyle = "rgba(58,44,20,0.78)";
+        let iy = rowY + headGap;
+        for (const line of gr.lines) {
           g.fillText(line, x, iy);
           iy += lh;
         }
-      }
-    });
+      });
+
+      rowY += headGap + tall * lh + rowGap;
+    }
 
     // Power inlet and a plate number, low down where they belong.
     const iTop = pTop + pH + 44;
@@ -762,8 +812,12 @@ function capTextureRaw(name, colour) {
     g.fillStyle = dome;
     g.fillRect(0, 0, w, w);
 
+    // Filler goes so the rest can be set larger, but "and" carries the join
+    // in a two-part title - dropping it outright turned Shells and Tails into
+    // "SHELLS TAILS". An ampersand costs one glyph and keeps the sense.
     const words = (name || "").toUpperCase().split(" ")
-      .filter((t) => t !== "THE" && t !== "AND" && t !== "OF");
+      .map((t) => (t === "AND" ? "&" : t))
+      .filter((t) => t !== "THE" && t !== "OF");
     if (!words.length) return;
 
     const MAXW = 196;
@@ -822,6 +876,48 @@ function creditsCapTexture(colour) {
     g.fillText("CREDITS", w / 2, h / 2 + 3);
     g.fillStyle = "rgba(48,30,4,0.92)";
     g.fillText("CREDITS", w / 2, h / 2);
+  });
+}
+
+/**
+ * The wide, soft wash the machine throws onto the page behind it.
+ *
+ * This is not the same job as `glowTexture`, and using that for it was the
+ * single ugliest thing on the page: a three-stop canvas gradient blown up to
+ * something wider than the cabinet lands each 1/255 alpha step on about four
+ * screen pixels, so the machine sat inside a set of hard concentric rings like
+ * a dartboard. Additive blending onto a near-black page makes it worse - there
+ * is nothing to hide the steps in.
+ *
+ * Two things fix it. The falloff is computed per pixel on a smooth curve
+ * instead of interpolated between a handful of stops, and every pixel is
+ * dithered by well under one step before it is quantised, which turns the
+ * remaining contours into noise the eye reads as film grain.
+ */
+function washTexture() {
+  return canvasTexture(512, 512, (g, w) => {
+    const img = g.createImageData(w, w);
+    const d = img.data;
+    const c = (w - 1) / 2;
+    for (let y = 0; y < w; y++) {
+      for (let x = 0; x < w; x++) {
+        const t = Math.min(1, Math.hypot(x - c, y - c) / c);
+        // Smooth to zero at the rim and steep in the middle: a lamp falls off
+        // like this, and a gradient that arrives at the edge with slope left
+        // shows a hard circle where it stops.
+        const a = Math.pow(1 - t, 3.1) * (1 - t * t) * 255;
+        // The dither has to be sized for where it ends up, not for where it
+        // is written. This is drawn at 30% opacity, so a wobble of half a step
+        // here is a sixth of a step on screen - far too small to break
+        // anything, which is why a first pass at it still banded. Eight steps
+        // of noise is under 2% and invisible; what it buys is a wash with no
+        // contours in it at all.
+        const i = (y * w + x) * 4;
+        d[i] = d[i + 1] = d[i + 2] = 255;
+        d[i + 3] = Math.max(0, Math.min(255, a + (Math.random() - 0.5) * 8));
+      }
+    }
+    g.putImageData(img, 0, 0);
   });
 }
 
@@ -1268,17 +1364,28 @@ function buildCabinet() {
     }
 
     if (!tight) {
-      y += 14;
+      // Every detail line used to be cut at its first wrapped line and closed
+      // with an ellipsis, so the panel under the screen read as three
+      // sentences that had all given up halfway. There was room for them: the
+      // plate is 430px tall and the description leaves most of it. A line
+      // either fits here whole or it is not worth showing, so they wrap, and a
+      // line that will not fit in what is left is dropped entirely rather than
+      // started and abandoned.
+      y += 18;
       const bFont = "500 40px ui-monospace, Menlo, monospace";
-      for (const b of (bullets || []).slice(0, 2)) {
-        const lines = wrap(b, bFont, w - 200);
+      const LEAD = 46;
+      for (const b of bullets || []) {
+        g.font = bFont;
+        const lines = wrap(b, bFont, w - 230);
+        if (y + (lines.length - 1) * LEAD > h - 34) break;
         g.fillStyle = hex(MAGENTA_HI);
         g.fillRect(75, y - 12, 8, 24);
-        g.font = bFont;
         g.fillStyle = "rgba(240,237,230,0.62)";
-        g.fillText(lines[0] + (lines.length > 1 ? "..." : ""), 108, y);
-        y += 52;
-        if (y > h - 30) break;
+        for (const line of lines) {
+          g.fillText(line, 108, y);
+          y += LEAD;
+        }
+        y += 12;
       }
     }
     noteTex.needsUpdate = true;
@@ -1588,15 +1695,20 @@ function buildCabinet() {
   pool.renderOrder = -1;
   group.add(pool);
 
-  // The magenta wash the page's own cabinet gets from its box-shadow.
+  // The magenta wash the page's own cabinet gets from its box-shadow. A CSS
+  // box-shadow hugs the element it comes from; at 5.2 units against a 3.4 unit
+  // cabinet this was a disc half again as tall as the machine, which reads as
+  // a backdrop the machine has been pasted onto rather than as light coming
+  // off it. Sized to the body and pushed further back, it does what a shadow
+  // does: says where the object is without being the thing you look at.
   const aura = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map: glow, color: MAGENTA, blending: THREE.AdditiveBlending, opacity: 0.22, depthWrite: false })
+    new THREE.SpriteMaterial({ map: washTexture(), color: MAGENTA, blending: THREE.AdditiveBlending, opacity: 0.3, depthWrite: false })
   );
-  aura.scale.set(5.2, 5.2, 1);
-  aura.position.set(0, 1.9, -1.4);
+  aura.scale.set(3.6, 3.6, 1);
+  aura.position.set(0, 1.78, -1.6);
   group.add(aura);
 
-  return { group, screen, screenUniforms, screenGlow, joysticks, buttons, marquee, marqueeGlow, pool, doorHinge, setTitle, setDetails, rebuildDeck, rebuildBack };
+  return { group, screen, screenUniforms, screenGlow, joysticks, buttons, marquee, marqueeGlow, pool, aura, doorHinge, setTitle, setDetails, rebuildDeck, rebuildBack };
 }
 
 // ── module ─────────────────────────────────────────────────────────────────
@@ -1726,10 +1838,40 @@ export default function boot() {
     if (contact) stops.push({ in: contact.top + vh * 0.05, out: contact.bottom - vh * 0.15 });
     fadeSpan = vh * 0.5;
 
-    // A short page or a tall viewport can collapse these into each other.
+    // A pose that is never held is a pose that does not exist.
+    //
+    // These windows are read off section geometry, and geometry can fail to
+    // provide. Ordering them with a bare max() did not fix that, it hid it:
+    // the stack beat came out as a ONE PIXEL hold - the machine turned to show
+    // its back panel and in the same instant began turning away - and the
+    // corner beat's window landed past the furthest the page can scroll, so it
+    // never ran at all. Both looked like animation bugs. Neither was.
+    //
+    // So the schedule is solved rather than clamped. Every hold gets a length
+    // worth holding, every gap enough room for the travel to read as movement,
+    // and the whole run is fitted into the range a reader can actually reach.
+    const HOLD = vh * 0.34;
+    const TRAVEL = vh * 0.42;
+
     for (let i = 1; i < stops.length; i++) {
-      stops[i].in = Math.max(stops[i].in, stops[i - 1].out + 1);
-      stops[i].out = Math.max(stops[i].out, stops[i].in + 1);
+      stops[i].in = Math.max(stops[i].in, stops[i - 1].out + TRAVEL);
+      stops[i].out = Math.max(stops[i].out, stops[i].in + HOLD);
+    }
+
+    // You can only scroll to a viewport short of the document's end, so the
+    // last hold has to end above that line - and the last stop is anchored to
+    // the last section, whose bottom IS the document's end. Left alone that
+    // beat is always out of reach. If the page cannot carry the full run,
+    // compress it evenly instead of letting the tail fall off the bottom.
+    const maxScroll = Math.max(0, document.documentElement.scrollHeight - vh);
+    const tail = stops[stops.length - 1];
+    const base = stops[0].out;
+    if (tail.out > maxScroll && tail.out > base) {
+      const k = clamp01((maxScroll - base) / (tail.out - base));
+      for (let i = 1; i < stops.length; i++) {
+        stops[i].in = base + (stops[i].in - base) * k;
+        stops[i].out = base + (stops[i].out - base) * k;
+      }
     }
   }
 
@@ -1847,6 +1989,15 @@ export default function boot() {
       BACK_YAW, vh * 0.5
     );
 
+    // Centred on the PANEL rather than on the cabinet's axis. The spec plate
+    // is on the back face, a little under a metre behind the pivot, and a yaw
+    // of 15 degrees off square swings that face a quarter of a unit to one
+    // side. Framing the machine's centre therefore put the one thing this beat
+    // exists to show off toward the edge of the screen, and on a phone ran it
+    // clean off. The offset is where the face actually is: z * sin(yaw), in
+    // the pixels-per-unit this pose is being drawn at.
+    const backShift = ((-(DEPTH + LIFT) * Math.sin(BACK_YAW)) / HEIGHT) * backBand.h;
+
     const stages = [
       narrow
         // A phone has no room beside the headline, so the machine sits low and
@@ -1857,7 +2008,7 @@ export default function boot() {
       // Looks down harder on a phone: the control panel is the surface that
       // suffers most from foreshortening, and it carries the labels.
       { x: vw * 0.5, y: zoom.y, h: zoom.h, ry: CENTRE_YAW, rx: narrow ? 0.26 : 0.15, op: 1 },
-      { x: vw * 0.5, y: backBand.y, h: backBand.h, ry: BACK_YAW, rx: 0.06, op: 1 },
+      { x: vw * 0.5 - backShift, y: backBand.y, h: backBand.h, ry: BACK_YAW, rx: 0.06, op: 1 },
       { x: cornerX, y: cornerY, h: cornerH, ry: CORNER_YAW, rx: 0.03, op: 1 },
     ];
 
@@ -2498,6 +2649,12 @@ export default function boot() {
     pivot.rotation.x = cur.rx;
     cab.group.position.y = -HEIGHT / 2 + Math.sin(clock.t * 0.8) * 0.018;
 
+    // How square-on the machine's face is, from 1 to 0 across the turn. Every
+    // glow that belongs to the front is scaled by it: a camera-facing sprite
+    // over a cabinet seen edge-on reads as a decal floating beside the machine
+    // rather than as light coming off it.
+    const faceOn = clamp01((Math.cos(cur.ry) - 0.12) / 0.42);
+
     // The marquee tube. Fluorescents do not burn steady: mostly they do, and
     // then they stutter for a couple of frames. The product of three sines
     // crosses the threshold rarely and irregularly, which is the shape of it.
@@ -2505,7 +2662,7 @@ export default function boot() {
     const n = Math.sin(clock.t * 1.7) * Math.sin(clock.t * 4.3) * Math.sin(clock.t * 9.1);
     const lamp = n > 0.7 ? 0.6 + Math.random() * 0.32 : 1 - 0.025 * Math.sin(clock.t * 2.3);
     cab.marquee.material.color.setScalar(lamp);
-    cab.marqueeGlow.material.opacity = 0.2 * lamp;
+    cab.marqueeGlow.material.opacity = 0.2 * lamp * faceOn;
     cab.pool.material.opacity = 0.5 * lamp;
 
     // Joysticks spring back to centre, overshooting slightly.
@@ -2550,15 +2707,23 @@ export default function boot() {
     // Sprites always turn to face the camera, which means every glow on the
     // front of this machine was still visible with the machine turned round -
     // the tube appeared to shine through its own back panel.
-    const front = !backToUs();
+    //
+    // A boolean was not enough. Hiding them only past square-on left them at
+    // full strength through the whole rotation, and the tube's rectangular
+    // halo in particular then read as a bright frame hanging in mid-air beside
+    // the machine. Light off a face should go as the face does, so these
+    // follow faceOn and are gone well before the turn reaches profile.
+    const front = faceOn > 0;
     cab.screenGlow.visible = front;
     cab.marqueeGlow.visible = front;
-    cab.screen.visible = front;
+    cab.aura.visible = front;
+    cab.screen.visible = !backToUs();
     for (const b of cab.buttons) b.halo.visible = front;
 
     cab.screenUniforms.uTime.value = clock.t;
     cab.screenUniforms.uSwitch.value = Math.max(0, cab.screenUniforms.uSwitch.value - dt * 1.9);
-    cab.screenGlow.material.opacity = 0.44 + Math.sin(clock.t * 2.2) * 0.05;
+    cab.screenGlow.material.opacity = (0.44 + Math.sin(clock.t * 2.2) * 0.05) * faceOn;
+    cab.aura.material.opacity = 0.3 * faceOn;
 
     // Bloom costs a second pass over the emissive layer plus four blur draws.
     // Worth it on a desktop where the machine fills the screen; not worth it on
