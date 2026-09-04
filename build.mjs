@@ -450,6 +450,24 @@ const CSS = `
     border: 0 !important;
   }
 
+  /* Clipping the writing out of these sections took their HEIGHT with it, and
+     the machine's choreography is measured in scroll distance: a section 195px
+     tall cannot hold a pose for as long as it takes to read the panel that
+     pose exists to show. That is not a detail - it had collapsed the stack
+     beat to a one-pixel hold and pushed the corner beat past the furthest the
+     page can scroll, so neither ran.
+
+     The height IS the beat, so it is stated here rather than left to whatever
+     the emptied markup happens to measure. */
+  .a3d #stack,
+  .a3d #experience { min-height: 100vh; }
+
+  /* And the last beat needs somewhere to happen. A page stops scrolling one
+     viewport short of its end, so the final pose - anchored to the final
+     section - sits below every reachable position unless the page keeps
+     running past it. */
+  .a3d #contact { padding-bottom: 70vh; }
+
   .a3d .arcade-controls:focus-within {
     position: static !important;
     width: auto; height: auto;
