@@ -384,6 +384,25 @@
      running past it. */
   .a3d #contact { padding-bottom: 70vh; }
 
+  /* The machine stands in the hero, to the right of the headline - and the
+     copy was running straight underneath it. At 1100px wide the cabinet spans
+     x 727-977 while the paragraph runs to x 812, so every line of the pitch
+     had its last few words hidden behind a cabinet. Text disappearing under an
+     ornament is the single worst thing a portfolio can do.
+
+     So the copy stops where the machine starts. The reserve is proportional in
+     the middle of the range, where the two are actually fighting for room, and
+     bounded at both ends: below 300px the machine would sit on the text, and
+     above 520px the headline - which is clamped at 132px - would start to
+     wrap. It is only applied where the machine stands beside the copy; on a
+     phone it sits under the headline instead and the copy gets the full width.
+
+     !important because the template writes its layout inline, and an inline
+     padding beats a stylesheet rule without it. */
+  @media (min-width: 860px) {
+    .a3d #top .hero-copy { padding-right: clamp(320px, 38vw, 520px) !important; }
+  }
+
   .a3d .arcade-controls:focus-within {
     position: static !important;
     width: auto; height: auto;
@@ -421,7 +440,7 @@
   <section id="top" style="position:relative;min-height:calc(100vh - 62px);display:grid;grid-template-columns:1fr;align-content:center;overflow:hidden;border-bottom:1px solid rgba(240,237,230,0.12)">
     <div style="position:absolute;inset:0;background-color:#15131A;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.045) 0 1px,transparent 1px 9px)"></div>
     <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 78% 20%, oklch(0.62 0.16 320 / 0.16), transparent 62%)"></div>
-    <div style="position:relative;max-width:1320px;margin:0 auto;padding:96px 44px;width:100%;box-sizing:border-box">
+    <div class="hero-copy" style="position:relative;max-width:1320px;margin:0 auto;padding:96px 44px;width:100%;box-sizing:border-box">
       <h1 style="font-weight:800;font-size:clamp(52px,8.4vw,132px);line-height:0.92;letter-spacing:-0.035em;word-spacing:0.12em;text-transform:uppercase;margin:0 0 8px">Unity<br>Developer</h1>
       <div style="font-family:Spectral,Georgia,serif;font-style:italic;font-weight:300;font-size:clamp(24px,2.9vw,42px);line-height:1.2;color:oklch(0.78 0.1 320);margin:0 0 40px">gameplay systems, UI architecture, netcode</div>
       <p style="font-size:18px;line-height:1.6;color:rgba(240,237,230,0.76);max-width:62ch;margin:0 0 46px;text-wrap:pretty">Five years and nine shipped commercial titles across Steam, Google Play, and WebGL including a mobile release past 100,000 downloads at 4.7 stars. I turn tightly coupled prototypes into modular systems a team can extend without breaking them.</p>
@@ -1414,7 +1433,7 @@
       return;
     }
     pending = true;
-    import("./js/arcade3d.js?v=4e93c89c")
+    import("./js/arcade3d.js?v=35dc91bd")
       .then(function (m) {
         pending = false;
         live = m.default();
