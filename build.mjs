@@ -487,6 +487,35 @@ const CSS = `
     .a3d #top .hero-copy { padding-right: clamp(320px, 38vw, 520px) !important; }
   }
 
+  /* The machine parks in the bottom-left of the contact section, so the copy
+     there leaves it a column - the same bargain the hero makes, for the same
+     reason. Sized to the parked cabinet: about 116px wide on a desktop and 88
+     on a phone, plus room to breathe. */
+  .a3d #contact .contact { padding-left: 112px !important; }
+  @media (min-width: 860px) {
+    .a3d #contact .contact { padding-left: 158px !important; }
+  }
+
+  /* The experience section's writing is on the machine now - it rolls on the
+     tube when the amber key is pressed - so under html.a3d this section is a
+     heading above empty space, and a heading with nothing under it reads as
+     something that failed to load rather than as something deliberate.
+     Worse, it puts a recruiter one undiscovered button away from the entire
+     work history. This says where it went.
+
+     A CSS ::after rather than markup because the real content is still in the
+     DOM directly above, clipped: a screen reader and a crawler both get the
+     roles themselves, and this is a pointer for someone looking at pixels. */
+  .a3d #experience::after {
+    content: "Press the amber CREDITS key on the machine to roll the full history.";
+    display: block;
+    margin-top: 30px;
+    max-width: 46ch;
+    font-size: 15px;
+    line-height: 1.5;
+    color: rgba(240,237,230,0.52);
+  }
+
   .a3d .arcade-controls:focus-within {
     position: static !important;
     width: auto; height: auto;

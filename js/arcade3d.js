@@ -1044,7 +1044,7 @@ const SCREEN_FRAG = `
       col.r = texture2D(uMap, m + vec2(sep, 0.0)).r;
       col.g = texture2D(uMap, m).g;
       col.b = texture2D(uMap, m - vec2(sep, 0.0)).b;
-      col = clamp((col - 0.5) * 1.22 + 0.5, 0.0, 1.0) * 1.06;
+      col = clamp((col - 0.5) * 1.36 + 0.5, 0.0, 1.0) * 1.08;
     } else {
       // No capture for this title (NDA): drifting colour bars and static, the
       // way a cabinet with nothing in the slot actually looks.
@@ -1067,7 +1067,7 @@ const SCREEN_FRAG = `
     // step had a hard leading edge that froze into a visible seam across the
     // picture in any still frame.
     float band = fract(vUv.y * 0.5 - uTime * 0.05);
-    col += 0.03 * exp(-pow((band - 0.5) * 6.0, 2.0));
+    col += 0.022 * exp(-pow((band - 0.5) * 6.0, 2.0));
 
     // Phosphor falls off toward the corners - gently. At its old strength it
     // took the corners to half brightness, and against the faceplate mask that
@@ -1079,13 +1079,25 @@ const SCREEN_FRAG = `
     col += roll * 0.55 * smoothstep(0.86, 1.0, fract(vUv.y + uSwitch * 2.4));
     col = mix(col, vec3(1.0), roll * 0.22);
 
+    // A tube that is switched on is never truly black. These captures have
+    // long dark stretches, and on those frames the screen read as a dead
+    // panel - which on the hero, where the glass is the first thing anyone
+    // looks at, makes the whole machine look broken rather than atmospheric.
+    // Phosphor holds a little glow and the glass holds a little of the room,
+    // so the near-blacks sit at that instead of at zero. Only the near-blacks:
+    // past about 13% this contributes nothing and the picture keeps its
+    // contrast, which is the whole reason it is done here and not by raising
+    // the black level of the capture itself.
+    float lum = dot(col, vec3(0.299, 0.587, 0.114));
+    col += (1.0 - smoothstep(0.0, 0.13, lum)) * vec3(0.020, 0.014, 0.036);
+
     // Room light on the glass. The tube is the most reflective surface on the
     // cabinet and had nothing on it at all, which left it reading as a hole
     // cut in the bezel instead of something you look through. Two bands, one
     // broad and one tight, sliding with the viewing angle.
     float d = vUv.x + (1.0 - vUv.y) * 0.7 - 0.75 + vOff * 0.85;
     float sheen = exp(-d * d * 9.0) * 0.55 + exp(-(d - 0.34) * (d - 0.34) * 46.0) * 0.35;
-    col += sheen * 0.055 * vec3(0.82, 0.86, 1.0);
+    col += sheen * 0.038 * vec3(0.82, 0.86, 1.0);
 
     // The phosphor stops before the faceplate does.
     col *= 1.0 - smoothstep(0.88, 1.0, plate) * 0.85;
@@ -1262,38 +1274,54 @@ function buildCabinet() {
   // the section says.
   const stripCanvas = document.createElement("canvas");
   stripCanvas.width = 1024;
-  stripCanvas.height = 168;
+  stripCanvas.height = 144;
   const stripTex = new THREE.CanvasTexture(stripCanvas);
   stripTex.colorSpace = THREE.SRGBColorSpace;
   const setTitle = (text, meta) => {
     const g = stripCanvas.getContext("2d");
     const w = stripCanvas.width;
     const h = stripCanvas.height;
-    g.fillStyle = "#0a0910";
+    // A plate, not a hole.
+    //
+    // This was filled flat #0a0910 - darker than anything around it - and the
+    // title is centred and short, so the ends of the strip carried no text and
+    // no glow. Against the lit bezel they read as a black block stuck to the
+    // side of the title, which is exactly what it looked like: an artifact.
+    // A plate with a graded face and a hairline edge reads as a part of the
+    // machine at every width the title happens to be.
+    const face = g.createLinearGradient(0, 0, 0, h);
+    face.addColorStop(0, "#1b1626");
+    face.addColorStop(0.55, "#120f19");
+    face.addColorStop(1, "#0c0a11");
+    g.fillStyle = face;
     g.fillRect(0, 0, w, h);
+
+    g.strokeStyle = "rgba(214,140,230,0.20)";
+    g.lineWidth = 3;
+    g.strokeRect(1.5, 1.5, w - 3, h - 3);
 
     g.textAlign = "center";
     g.textBaseline = "middle";
-    g.font = "700 46px ui-monospace, Menlo, monospace";
+    g.font = "700 44px ui-monospace, Menlo, monospace";
     g.letterSpacing = "9px";
     g.shadowColor = hex(MAGENTA);
     g.shadowBlur = 26;
     g.fillStyle = hex(MAGENTA_HI);
-    g.fillText((text || "select title").toUpperCase(), w / 2, 54);
+    g.fillText((text || "select title").toUpperCase(), w / 2, 46);
     g.shadowBlur = 0;
 
     if (meta) {
-      g.strokeStyle = "rgba(214,140,230,0.30)";
+      g.strokeStyle = "rgba(214,140,230,0.28)";
       g.lineWidth = 2;
       g.beginPath();
-      g.moveTo(w * 0.22, 92);
-      g.lineTo(w * 0.78, 92);
+      g.moveTo(w * 0.22, 78);
+      g.lineTo(w * 0.78, 78);
       g.stroke();
 
-      g.font = "600 30px ui-monospace, Menlo, monospace";
+      g.font = "600 28px ui-monospace, Menlo, monospace";
       g.letterSpacing = "7px";
       g.fillStyle = "rgba(240,237,230,0.62)";
-      g.fillText(meta.toUpperCase(), w / 2, 128);
+      g.fillText(meta.toUpperCase(), w / 2, 110);
     }
     stripTex.needsUpdate = true;
   };
@@ -1406,7 +1434,7 @@ function buildCabinet() {
 
   const stripAt = onProfile(BEZEL_SEG, 0.09);
   const strip = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.94, 0.155),
+    new THREE.PlaneGeometry(1.1, 0.155),
     new THREE.MeshBasicMaterial({ map: stripTex, toneMapped: false })
   );
   strip.position.set(0, stripAt.y, stripAt.z + LIFT + 0.004);
@@ -1782,12 +1810,20 @@ export default function boot() {
   // not a wash: at 3.4 it was the brightest thing landing on the pale surfaces
   // - the kraft spec card came back pink and the steel plates went lilac - and
   // a rim light that repaints what it touches is not doing its job.
-  const rim = new THREE.DirectionalLight(MAGENTA_HI, 2.3);
+  //
+  // Down again from 2.3, because the machine turns. A rim light is defined by
+  // being behind its subject, and this one is fixed in the room while the
+  // cabinet rotates past it - so on the beat that shows the back panel it
+  // stopped grazing an edge and lit a whole side panel square on, as a bar of
+  // saturated lilac louder than the spec plate it was standing next to. At 1.5
+  // it still draws the silhouette on the beats that face front and no longer
+  // shouts on the one that does not.
+  const rim = new THREE.DirectionalLight(MAGENTA_HI, 1.5);
   rim.position.set(-3.8, 1.8, -2.2);
   scene.add(rim);
 
   // Bounce, so the kickplate is not a black hole under the deck.
-  const fill = new THREE.DirectionalLight(0x8f9bff, 1.5);
+  const fill = new THREE.DirectionalLight(0x8f9bff, 1.7);
   fill.position.set(-2.4, -1.8, 3.2);
   scene.add(fill);
 
@@ -1983,9 +2019,17 @@ export default function boot() {
     // gutter allows it and never hides more than about half of itself where it
     // does not; a phone has 20px of gutter against the desktop's 44, which no
     // placement rule can buy room out of, so there it is made smaller instead.
-    const cornerH = Math.min(vh * (narrow ? 0.3 : 0.32), narrow ? 230 : 250);
+    const cornerH = Math.min(vh * (narrow ? 0.26 : 0.32), narrow ? 190 : 250);
     const cornerW = cornerH * spanPerHeight(CORNER_YAW);
-    const cornerX = Math.max(cornerW * 0.06, contentLeft - 8 - cornerW / 2);
+    // Fully on screen, always.
+    //
+    // The floor here used to be 6% of the machine's own width, which put its
+    // CENTRE seven pixels from the edge of the viewport - nine tenths of the
+    // cabinet was outside it and the marquee read "...HAMAKHI". A machine
+    // parked half off the screen does not look parked, it looks like a bug,
+    // and this is the beat a recruiter is looking at while they decide whether
+    // to write to you.
+    const cornerX = Math.max(cornerW / 2 + (narrow ? 12 : 18), contentLeft - 8 - cornerW / 2);
     const cornerY = vh - (narrow ? 10 : 22) - cornerH / 2;
 
     // STACK - turned round, and held at the same size the zoom is: this is
