@@ -53,7 +53,13 @@ const PROFILE = [
   [0.6, 1.26], // control deck surface, rising toward the back  <- joysticks
   [0.62, 1.36], // riser behind the deck
   [0.3, 1.44], // overhang under the monitor
-  [0.32, 1.68], // bezel, bottom
+  // Raised from 1.68. The case notes live on the overhang between the deck
+  // and the monitor, and that face was 0.24 units tall - the panel already
+  // filled it, so the writing could not be made bigger without the cabinet
+  // giving up some height. It comes out of the tube, which loses about an
+  // eighth of its height and in exchange crops less off the sides of a 16:9
+  // capture than it did.
+  [0.32, 1.83], // bezel, bottom
   [0.44, 2.80], // bezel, top (leans back)                      <- screen
   [0.16, 2.94], // marquee juts back out over the bezel
   [0.16, 3.3], // marquee, top
@@ -97,7 +103,7 @@ const DECK_BUTTONS = [
 const CREDITS_BUTTON = { x: 0.42, s: 0.17, w: 0.3, d: 0.078 };
 
 const SCREEN_W = 1.14;
-const SCREEN_H = 0.82; // the capture is 16:9 and is cover-cropped to fit
+const SCREEN_H = 0.70; // the capture is 16:9 and is cover-cropped to fit
 
 // The extrusion is bevelled, which pushes the body's real surface out past the
 // profile by BEVEL. Every decal sits on the profile, so it has to clear both
@@ -882,44 +888,38 @@ function creditsCapTexture(colour) {
 /**
  * The wide, soft wash the machine throws onto the page behind it.
  *
- * This is not the same job as `glowTexture`, and using that for it was the
- * single ugliest thing on the page: a three-stop canvas gradient blown up to
- * something wider than the cabinet lands each 1/255 alpha step on about four
- * screen pixels, so the machine sat inside a set of hard concentric rings like
- * a dartboard. Additive blending onto a near-black page makes it worse - there
- * is nothing to hide the steps in.
+ * Drawn by a shader rather than sampled from a picture of a gradient, because
+ * every version of that picture was wrong in one direction or the other. A
+ * plain canvas gradient blown up wider than the cabinet lands each 1/255 alpha
+ * step on several screen pixels, so the machine sat inside hard concentric
+ * rings; dithering the texture hard enough to break those rings - and it has to
+ * be hard, because the wash is drawn at a third of full opacity - then showed
+ * as coloured speckle the moment the zoomed beat magnified it.
  *
- * Two things fix it. The falloff is computed per pixel on a smooth curve
- * instead of interpolated between a handful of stops, and every pixel is
- * dithered by well under one step before it is quantised, which turns the
- * remaining contours into noise the eye reads as film grain.
+ * There is no trade to make here. The falloff is an expression, so it is
+ * evaluated per pixel at full float precision at whatever size it ends up:
+ * no steps to band, and no noise added to hide them.
  */
-function washTexture() {
-  return canvasTexture(512, 512, (g, w) => {
-    const img = g.createImageData(w, w);
-    const d = img.data;
-    const c = (w - 1) / 2;
-    for (let y = 0; y < w; y++) {
-      for (let x = 0; x < w; x++) {
-        const t = Math.min(1, Math.hypot(x - c, y - c) / c);
-        // Smooth to zero at the rim and steep in the middle: a lamp falls off
-        // like this, and a gradient that arrives at the edge with slope left
-        // shows a hard circle where it stops.
-        const a = Math.pow(1 - t, 3.1) * (1 - t * t) * 255;
-        // The dither has to be sized for where it ends up, not for where it
-        // is written. This is drawn at 30% opacity, so a wobble of half a step
-        // here is a sixth of a step on screen - far too small to break
-        // anything, which is why a first pass at it still banded. Eight steps
-        // of noise is under 2% and invisible; what it buys is a wash with no
-        // contours in it at all.
-        const i = (y * w + x) * 4;
-        d[i] = d[i + 1] = d[i + 2] = 255;
-        d[i + 3] = Math.max(0, Math.min(255, a + (Math.random() - 0.5) * 8));
-      }
-    }
-    g.putImageData(img, 0, 0);
-  });
-}
+const WASH_FRAG = `
+  uniform vec3 uColor;
+  uniform float uAlpha;
+  varying vec2 vUv;
+  void main() {
+    float t = clamp(length(vUv - 0.5) * 2.0, 0.0, 1.0);
+    // Steep in the middle and arriving flat at the rim: a gradient that still
+    // has slope where it stops draws a visible circle around itself.
+    float a = pow(1.0 - t, 3.1) * (1.0 - t * t) * uAlpha;
+    gl_FragColor = vec4(uColor * a, a);
+  }
+`;
+
+const WASH_VERT = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
 
 /** A soft radial disc, used additively for every light bloom in the scene. */
 function glowTexture() {
@@ -1210,14 +1210,14 @@ function buildCabinet() {
   // glass floats a couple of millimetres in front of it.
   const bezelAt = onProfile(BEZEL_SEG, 0.5);
   const bezel = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.19, 1.02),
+    new THREE.PlaneGeometry(1.19, 0.87),
     new THREE.MeshStandardMaterial({ color: SHELL_DK, roughness: 0.85 })
   );
   bezel.position.set(0, bezelAt.y, bezelAt.z + LIFT);
   bezel.rotation.x = -bezelAt.tilt;
   group.add(bezel);
 
-  const glassAt = onProfile(BEZEL_SEG, 0.52);
+  const glassAt = onProfile(BEZEL_SEG, 0.55);
   const screenUniforms = {
     uMap: { value: null },
     uHasMap: { value: 0 },
@@ -1306,7 +1306,7 @@ function buildCabinet() {
   // square on.
   const noteCanvas = document.createElement("canvas");
   noteCanvas.width = 2048;
-  noteCanvas.height = 430;
+  noteCanvas.height = 698;
   const noteTex = new THREE.CanvasTexture(noteCanvas);
   noteTex.colorSpace = THREE.SRGBColorSpace;
 
@@ -1346,47 +1346,50 @@ function buildCabinet() {
 
     // A phone gets fewer words at a bigger size. This panel is a fixed slice
     // of a machine whose width is already capped by the viewport, so on a
-    // narrow screen the only way to make anything legible is to say less: the
-    // detail lines drop and the description gets the whole plate. Rendering
-    // both at the desktop density put this text at about 6px on a phone.
+    // narrow screen the only way to make anything legible is to say less.
     const tight = innerWidth < 860;
 
-    let y = tight ? 96 : 70;
+    let y = tight ? 118 : 92;
     const descFont = tight
-      ? "500 78px Spectral, Georgia, serif"
-      : "500 52px Spectral, Georgia, serif";
+      ? "500 84px Spectral, Georgia, serif"
+      : "500 66px Spectral, Georgia, serif";
     const descLines = wrap(desc || "", descFont, w - (tight ? 120 : 150));
-    for (const line of descLines.slice(0, tight ? 3 : 2)) {
+    for (const line of descLines.slice(0, 3)) {
       g.font = descFont;
-      g.fillStyle = "rgba(240,237,230,0.92)";
+      g.fillStyle = "rgba(240,237,230,0.94)";
       g.fillText(line, tight ? 60 : 75, y);
-      y += tight ? 92 : 62;
+      y += tight ? 98 : 80;
     }
 
-    if (!tight) {
-      // Every detail line used to be cut at its first wrapped line and closed
-      // with an ellipsis, so the panel under the screen read as three
-      // sentences that had all given up halfway. There was room for them: the
-      // plate is 430px tall and the description leaves most of it. A line
-      // either fits here whole or it is not worth showing, so they wrap, and a
-      // line that will not fit in what is left is dropped entirely rather than
-      // started and abandoned.
-      y += 18;
-      const bFont = "500 40px ui-monospace, Menlo, monospace";
-      const LEAD = 46;
-      for (const b of bullets || []) {
-        g.font = bFont;
-        const lines = wrap(b, bFont, w - 230);
-        if (y + (lines.length - 1) * LEAD > h - 34) break;
-        g.fillStyle = hex(MAGENTA_HI);
-        g.fillRect(75, y - 12, 8, 24);
-        g.fillStyle = "rgba(240,237,230,0.62)";
-        for (const line of lines) {
-          g.fillText(line, 108, y);
-          y += LEAD;
-        }
-        y += 12;
+    // Every detail line used to be cut at its first wrapped line and closed
+    // with an ellipsis, so the panel under the screen read as three sentences
+    // that had all given up halfway. A line either fits here whole or it is
+    // not worth showing, so they wrap, and one that will not fit in what is
+    // left is dropped entirely rather than started and abandoned.
+    //
+    // The taller overhang means a phone gets these too now, where before there
+    // was only room for the description.
+    y += tight ? 26 : 22;
+    // Sized so a real detail line actually fits. At 62px the first of these
+    // wrapped to four lines, overflowed the plate, and the loop below broke on
+    // it - which meant a phone showed no detail at all while the bottom third
+    // of the panel sat empty. The check is doing its job; the type was wrong.
+    const bSize = tight ? 54 : 46;
+    const bFont = "500 " + bSize + "px ui-monospace, Menlo, monospace";
+    const LEAD = tight ? 66 : 54;
+    const bx = tight ? 60 : 75;
+    for (const b of bullets || []) {
+      g.font = bFont;
+      const lines = wrap(b, bFont, w - (tight ? 180 : 240));
+      if (y + (lines.length - 1) * LEAD > h - 40) break;
+      g.fillStyle = hex(MAGENTA_HI);
+      g.fillRect(bx, y - bSize * 0.32, tight ? 10 : 8, bSize * 0.62);
+      g.fillStyle = "rgba(240,237,230,0.66)";
+      for (const line of lines) {
+        g.fillText(line, bx + (tight ? 44 : 33), y);
+        y += LEAD;
       }
+      y += tight ? 18 : 14;
     }
     noteTex.needsUpdate = true;
   };
@@ -1394,14 +1397,14 @@ function buildCabinet() {
 
   const noteAt = onProfile(OVERHANG, 0.5);
   const notes = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.1, 0.231),
+    new THREE.PlaneGeometry(1.1, 0.375),
     new THREE.MeshBasicMaterial({ map: noteTex, toneMapped: false })
   );
   notes.position.set(0, noteAt.y, noteAt.z + LIFT);
   notes.rotation.x = -noteAt.tilt;
   group.add(notes);
 
-  const stripAt = onProfile(BEZEL_SEG, 0.075);
+  const stripAt = onProfile(BEZEL_SEG, 0.09);
   const strip = new THREE.Mesh(
     new THREE.PlaneGeometry(0.94, 0.155),
     new THREE.MeshBasicMaterial({ map: stripTex, toneMapped: false })
@@ -1701,11 +1704,26 @@ function buildCabinet() {
   // a backdrop the machine has been pasted onto rather than as light coming
   // off it. Sized to the body and pushed further back, it does what a shadow
   // does: says where the object is without being the thing you look at.
-  const aura = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map: washTexture(), color: MAGENTA, blending: THREE.AdditiveBlending, opacity: 0.3, depthWrite: false })
+  // A mesh, not a sprite, because a sprite cannot carry a custom shader. It
+  // gives up automatic billboarding in exchange, so the loop turns it back to
+  // face the camera as the machine rotates.
+  const aura = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.6, 3.6),
+    new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color(MAGENTA) },
+        uAlpha: { value: 0.3 },
+      },
+      vertexShader: WASH_VERT,
+      fragmentShader: WASH_FRAG,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false,
+    })
   );
-  aura.scale.set(3.6, 3.6, 1);
   aura.position.set(0, 1.78, -1.6);
+  aura.renderOrder = -2;
   group.add(aura);
 
   return { group, screen, screenUniforms, screenGlow, joysticks, buttons, marquee, marqueeGlow, pool, aura, doorHinge, setTitle, setDetails, rebuildDeck, rebuildBack };
@@ -2069,15 +2087,33 @@ export default function boot() {
   let creditsOn = false;
   let creditsTex = null;
 
+  /** Every job the experience section lists, as structured rows. */
+  function readJobs() {
+    const read = (el) =>
+      (el.innerText || "").split(/\r?\n/).map((t) => t.trim()).filter(Boolean);
+    return [...document.querySelectorAll("#experience .roles")]
+      .map((block) => {
+        const head = read(block.children[0] || block);
+        return {
+          studio: head[0] || "",
+          role: head[1] || "",
+          years: head[2] || "",
+          did: block.children[1] ? read(block.children[1]) : [],
+        };
+      })
+      .filter((j) => j.studio);
+  }
+
   function buildCredits() {
-    const rows = [];
-    const roles = document.querySelector("#experience .roles");
-    if (roles) {
-      for (const row of roles.children) {
-        const lines = (row.innerText || "").split(/\r?\n/).map((t) => t.trim()).filter(Boolean);
-        if (lines.length) rows.push(lines);
-      }
-    }
+    // Every job is its own .roles block, holding two columns: the studio,
+    // title and dates on the left, what was done there on the right.
+    //
+    // This used to take querySelector - the FIRST block - and then walk ITS
+    // children, so the roll showed one employer and then printed that
+    // employer's three achievements as if they were three more employers. Four
+    // jobs, one shown, and the rest of the screen was nonsense.
+    const jobs = readJobs();
+
     return canvasTexture(1024, 736, (g, w, h) => {
       g.fillStyle = "#0a0910";
       g.fillRect(0, 0, w, h);
@@ -2096,34 +2132,55 @@ export default function boot() {
       g.lineTo(w * 0.84, 128);
       g.stroke();
 
-      let y = 194;
-      for (const lines of rows.slice(0, 5)) {
-        g.textAlign = "left";
-        g.font = "700 44px ui-monospace, Menlo, monospace";
-        g.letterSpacing = "2px";
-        g.fillStyle = "rgba(240,237,230,0.94)";
-        g.fillText(lines[0].toUpperCase(), w * 0.1, y);
+      if (!jobs.length) return;
 
-        if (lines[1]) {
-          g.font = "500 31px ui-monospace, Menlo, monospace";
-          g.letterSpacing = "4px";
-          g.fillStyle = "rgba(214,140,230,0.82)";
-          g.fillText(lines[1].toUpperCase(), w * 0.1, y + 46);
-        }
-        if (lines[2]) {
+      // Spread over the room there is rather than stacked at a fixed pitch, so
+      // the roll fills the tube whether there are three employers or six.
+      // The tube is masked to a superellipse, so the corners and the last
+      // strip of the canvas never reach the glass. The roll is centred in what
+      // is actually visible rather than run from the top of the bitmap, which
+      // left it stacked under the header with a third of the screen empty.
+      const top = 196;
+      const bottom = h - 128;
+      // Pitch is the gap BETWEEN entries, so it divides by the gaps, not by
+      // the entries - dividing by the count left the roll set smaller than it
+      // needed to be with room to spare underneath.
+      const ROW = 80; // a studio line plus the role beneath it
+      const pitch = Math.min(140, (bottom - top - ROW) / Math.max(1, jobs.length - 1));
+      const scale = Math.min(1, pitch / 118);
+      const block = (jobs.length - 1) * pitch;
+      const y0 = top + Math.max(0, (bottom - top - block) / 2);
+
+      jobs.forEach((job, i) => {
+        const y = y0 + i * pitch;
+
+        g.textAlign = "left";
+        g.letterSpacing = "2px";
+        g.font = "700 " + Math.round(46 * scale) + "px ui-monospace, Menlo, monospace";
+        g.fillStyle = "rgba(240,237,230,0.95)";
+        g.fillText(job.studio.toUpperCase(), w * 0.1, y);
+
+        if (job.years) {
           g.textAlign = "right";
-          g.font = "500 29px ui-monospace, Menlo, monospace";
+          g.letterSpacing = "1px";
+          g.font = "500 " + Math.round(28 * scale) + "px ui-monospace, Menlo, monospace";
           g.fillStyle = "rgba(240,237,230,0.5)";
-          g.fillText(lines[2].toUpperCase(), w * 0.9, y);
+          g.fillText(job.years.toUpperCase(), w * 0.9, y);
         }
-        y += 116;
-      }
+        if (job.role) {
+          g.textAlign = "left";
+          g.letterSpacing = "4px";
+          g.font = "500 " + Math.round(31 * scale) + "px ui-monospace, Menlo, monospace";
+          g.fillStyle = "rgba(214,140,230,0.85)";
+          g.fillText(job.role.toUpperCase(), w * 0.1, y + Math.round(46 * scale));
+        }
+      });
 
       g.textAlign = "center";
-      g.font = "600 27px ui-monospace, Menlo, monospace";
       g.letterSpacing = "8px";
-      g.fillStyle = "rgba(240,237,230,0.42)";
-      g.fillText("PRESS ANY TITLE TO RESUME", w / 2, h - 42);
+      g.font = "600 27px ui-monospace, Menlo, monospace";
+      g.fillStyle = "rgba(240,237,230,0.55)";
+      g.fillText("PRESS ANY TITLE TO RESUME", w / 2, h - 104);
     });
   }
 
@@ -2132,7 +2189,11 @@ export default function boot() {
     releaseMedia();
     creditsOn = true;
     cab.setTitle("Credits", "Experience");
-    cab.setDetails("Where I have built, and what I owned on each.", []);
+    const jobs = readJobs();
+    cab.setDetails(
+      "Where I have built, and what I owned on each.",
+      jobs.slice(0, 2).map((j) => j.studio + " - " + (j.did[0] || j.role))
+    );
     cab.screenUniforms.uMediaAspect.value = 1024 / 736;
     cab.screenUniforms.uMap.value = creditsTex;
     cab.screenUniforms.uHasMap.value = 1;
@@ -2556,9 +2617,24 @@ export default function boot() {
   const vel = { x: 0, y: 0, s: 0, ry: 0, rx: 0 };
   let settled = false;
 
-  function chase(key, target, stiff, damp, dt) {
+  /**
+   * A spring, parameterised by how much it is allowed to overshoot.
+   *
+   * `zeta` is the damping ratio: 1 arrives without overshooting at all, and
+   * every step below that adds a bounce - 0.44 overshoots its mark by 21%.
+   * That is what the damping constants here used to work out to, and it is why
+   * the machine did not feel like a heavy object. Stopping a scroll left it
+   * drifting past where it was going and swinging back, and a 22 degree
+   * overshoot at the end of the turn to the back panel made the rotation look
+   * like it had been thrown rather than driven.
+   *
+   * Stated as a ratio rather than as a per-second decay because the ratio is
+   * the thing with a meaning; the decay constant it implies is not something
+   * anyone can read off a number.
+   */
+  function chase(key, target, stiff, zeta, dt) {
     vel[key] += (target - cur[key]) * stiff * dt;
-    vel[key] *= Math.pow(damp, dt);
+    vel[key] *= Math.exp(-2 * zeta * Math.sqrt(stiff) * dt);
     cur[key] += vel[key] * dt;
   }
 
@@ -2636,11 +2712,15 @@ export default function boot() {
       vel.x = vel.y = vel.s = vel.ry = vel.rx = 0;
       settled = true;
     }
-    chase("x", tX, 70, 0.0006, dt);
-    chase("y", tY, 70, 0.0006, dt);
-    chase("s", tS, 70, 0.0006, dt);
-    chase("ry", tRy, 30, 0.003, dt);
-    chase("rx", tRx, 30, 0.003, dt);
+    // 0.85: no bounce the eye can see, but still a spring's ease rather than
+    // a slide. The machine is meant to read as something heavy being moved,
+    // and heavy things do not wobble to a stop.
+    const ZETA = 0.85;
+    chase("x", tX, 70, ZETA, dt);
+    chase("y", tY, 70, ZETA, dt);
+    chase("s", tS, 70, ZETA, dt);
+    chase("ry", tRy, 30, ZETA, dt);
+    chase("rx", tRx, 30, ZETA, dt);
 
     pivot.position.x = cur.x;
     pivot.position.y = cur.y;
@@ -2723,7 +2803,10 @@ export default function boot() {
     cab.screenUniforms.uTime.value = clock.t;
     cab.screenUniforms.uSwitch.value = Math.max(0, cab.screenUniforms.uSwitch.value - dt * 1.9);
     cab.screenGlow.material.opacity = (0.44 + Math.sin(clock.t * 2.2) * 0.05) * faceOn;
-    cab.aura.material.opacity = 0.3 * faceOn;
+    // Turned back to face the camera, undoing the yaw the pivot applies to
+    // everything in the group.
+    cab.aura.rotation.y = -cur.ry;
+    cab.aura.material.uniforms.uAlpha.value = 0.3 * faceOn;
 
     // Bloom costs a second pass over the emissive layer plus four blur draws.
     // Worth it on a desktop where the machine fills the screen; not worth it on

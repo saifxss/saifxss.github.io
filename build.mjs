@@ -468,6 +468,25 @@ const CSS = `
      running past it. */
   .a3d #contact { padding-bottom: 70vh; }
 
+  /* The machine stands in the hero, to the right of the headline - and the
+     copy was running straight underneath it. At 1100px wide the cabinet spans
+     x 727-977 while the paragraph runs to x 812, so every line of the pitch
+     had its last few words hidden behind a cabinet. Text disappearing under an
+     ornament is the single worst thing a portfolio can do.
+
+     So the copy stops where the machine starts. The reserve is proportional in
+     the middle of the range, where the two are actually fighting for room, and
+     bounded at both ends: below 300px the machine would sit on the text, and
+     above 520px the headline - which is clamped at 132px - would start to
+     wrap. It is only applied where the machine stands beside the copy; on a
+     phone it sits under the headline instead and the copy gets the full width.
+
+     !important because the template writes its layout inline, and an inline
+     padding beats a stylesheet rule without it. */
+  @media (min-width: 860px) {
+    .a3d #top .hero-copy { padding-right: clamp(320px, 38vw, 520px) !important; }
+  }
+
   .a3d .arcade-controls:focus-within {
     position: static !important;
     width: auto; height: auto;
@@ -485,6 +504,9 @@ const cls = (name, marker, className, count = 1) => {
   html = edit(name, html, marker, marker.replace("<div style=", `<div class="${className}" style=`), { count });
 };
 
+cls("cls-hero-copy",
+  '<div style="position:relative;max-width:1320px;margin:0 auto;padding:96px 44px;width:100%;box-sizing:border-box">',
+  "hero-copy");
 cls("cls-stat-band",
   '<div style="max-width:1320px;margin:0 auto;padding:0 44px;display:grid;grid-template-columns:repeat(4,1fr)">',
   "stat-band pad-x");
