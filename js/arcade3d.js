@@ -59,7 +59,7 @@ const PROFILE = [
   // giving up some height. It comes out of the tube, which loses about an
   // eighth of its height and in exchange crops less off the sides of a 16:9
   // capture than it did.
-  [0.32, 1.83], // bezel, bottom
+  [0.32, 1.90], // bezel, bottom
   [0.44, 2.80], // bezel, top (leans back)                      <- screen
   [0.16, 2.94], // marquee juts back out over the bezel
   [0.16, 3.3], // marquee, top
@@ -87,23 +87,27 @@ const OVERHANG = { a: 5, b: 6 };
 //
 // Seven positions, one per title, laid out 4+3 - the asymmetric row a
 // multi-game panel carries rather than the 3+3 a fighting cabinet would.
+// One stick, not two. The second was symmetry for its own sake - nothing on
+// this cabinet is two-player - and it was eating a third of the deck that the
+// titles needed. The keys move into that space and get bigger, which is the
+// only thing that ever made their labels readable.
 const DECK_BUTTONS = [
-  { x: -0.29, s: 0.70, tag: "01" },
-  { x: -0.10, s: 0.72, tag: "02" },
-  { x: 0.10, s: 0.72, tag: "03" },
-  { x: 0.29, s: 0.70, tag: "04" },
-  { x: -0.20, s: 0.36, tag: "05" },
-  { x: 0.0, s: 0.375, tag: "06" },
-  { x: 0.20, s: 0.36, tag: "07" },
+  { x: -0.11, s: 0.70, tag: "01" },
+  { x: 0.095, s: 0.715, tag: "02" },
+  { x: 0.30, s: 0.715, tag: "03" },
+  { x: 0.505, s: 0.70, tag: "04" },
+  { x: 0.0, s: 0.375, tag: "05" },
+  { x: 0.205, s: 0.39, tag: "06" },
+  { x: 0.41, s: 0.375, tag: "07" },
 ];
 
 // CREDITS is a different KIND of control - it does not load a title, it
 // changes what the machine is doing - so it gets the shape a cabinet gives its
 // coin and start controls: a long rectangle, off to the side, in amber.
-const CREDITS_BUTTON = { x: 0.42, s: 0.17, w: 0.3, d: 0.078 };
+const CREDITS_BUTTON = { x: -0.44, s: 0.15, w: 0.32, d: 0.082 };
 
 const SCREEN_W = 1.14;
-const SCREEN_H = 0.70; // the capture is 16:9 and is cover-cropped to fit
+const SCREEN_H = 0.66; // the capture is 16:9 and is cover-cropped to fit
 
 // The extrusion is bevelled, which pushes the body's real surface out past the
 // profile by BEVEL. Every decal sits on the profile, so it has to clear both
@@ -826,7 +830,7 @@ function capTextureRaw(name, colour) {
       .filter((t) => t !== "THE" && t !== "OF");
     if (!words.length) return;
 
-    const MAXW = 196;
+    const MAXW = 214;
     const fits = (lines, px) => {
       g.font = "800 " + px + "px ui-monospace, Menlo, monospace";
       return lines.every((l) => g.measureText(l).width <= MAXW);
@@ -835,8 +839,8 @@ function capTextureRaw(name, colour) {
     // One line if it fits, otherwise split at the boundary nearest the middle
     // so neither line is a stub.
     let lines = [words.join(" ")];
-    let size = 46;
-    while (size > 30 && !fits(lines, size)) size -= 2;
+    let size = 54;
+    while (size > 34 && !fits(lines, size)) size -= 2;
     if (!fits(lines, size) && words.length > 1) {
       let best = 1;
       let gap = Infinity;
@@ -845,8 +849,8 @@ function capTextureRaw(name, colour) {
         if (d < gap) { gap = d; best = k; }
       }
       lines = [words.slice(0, best).join(" "), words.slice(best).join(" ")];
-      size = 42;
-      while (size > 22 && !fits(lines, size)) size -= 2;
+      size = 48;
+      while (size > 26 && !fits(lines, size)) size -= 2;
     }
 
     g.textAlign = "center";
@@ -1089,7 +1093,7 @@ const SCREEN_FRAG = `
     // contrast, which is the whole reason it is done here and not by raising
     // the black level of the capture itself.
     float lum = dot(col, vec3(0.299, 0.587, 0.114));
-    col += (1.0 - smoothstep(0.0, 0.13, lum)) * vec3(0.020, 0.014, 0.036);
+    col += (1.0 - smoothstep(0.0, 0.13, lum)) * vec3(0.013, 0.009, 0.024);
 
     // Room light on the glass. The tube is the most reflective surface on the
     // cabinet and had nothing on it at all, which left it reading as a hole
@@ -1222,7 +1226,7 @@ function buildCabinet() {
   // glass floats a couple of millimetres in front of it.
   const bezelAt = onProfile(BEZEL_SEG, 0.5);
   const bezel = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.19, 0.87),
+    new THREE.PlaneGeometry(1.19, 0.80),
     new THREE.MeshStandardMaterial({ color: SHELL_DK, roughness: 0.85 })
   );
   bezel.position.set(0, bezelAt.y, bezelAt.z + LIFT);
@@ -1255,11 +1259,29 @@ function buildCabinet() {
 
   // The tube throws light into the room. One sprite for the halo on the glass,
   // one real light so the deck and the joysticks are lit by the game.
-  const screenGlow = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map: haloTexture(), color: MAGENTA_HI, blending: THREE.AdditiveBlending, opacity: 0.5, depthWrite: false })
+  // The tube's halo, coplanar with the tube.
+  //
+  // This was a Sprite floating 0.18 in front of the glass, and a sprite always
+  // turns to face the camera - so the moment the machine was seen at any angle
+  // at all, the halo's rectangle stopped agreeing with the screen's. You could
+  // see a second, brighter rectangle hanging off the corner of the first, its
+  // edges running the wrong way. Light coming off a screen belongs on the
+  // screen's own plane, offset along its normal by a hair, not billboarded.
+  const glowLift = 0.012;
+  const screenGlow = new THREE.Mesh(
+    new THREE.PlaneGeometry(SCREEN_W * HALO, SCREEN_H * HALO),
+    new THREE.MeshBasicMaterial({
+      map: haloTexture(), color: MAGENTA_HI, blending: THREE.AdditiveBlending,
+      transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false,
+    })
   );
-  screenGlow.scale.set(SCREEN_W * HALO, SCREEN_H * HALO, 1);
-  screenGlow.position.set(0, glassAt.y, glassAt.z + 0.18);
+  screenGlow.position.set(
+    0,
+    glassAt.y + Math.sin(glassAt.tilt) * glowLift,
+    glassAt.z + LIFT + 0.006 + Math.cos(glassAt.tilt) * glowLift
+  );
+  screenGlow.rotation.x = -glassAt.tilt;
+  screenGlow.renderOrder = 2;
   group.add(screenGlow);
 
   const screenLight = new THREE.PointLight(0xc9a8ff, 1.7, 3.4, 2);
@@ -1272,87 +1294,43 @@ function buildCabinet() {
   // year and the position in the reel, in the same register as the page's own
   // badges. All of it comes off the panel below, so it cannot drift from what
   // the section says.
-  const stripCanvas = document.createElement("canvas");
-  stripCanvas.width = 1024;
-  stripCanvas.height = 144;
-  const stripTex = new THREE.CanvasTexture(stripCanvas);
-  stripTex.colorSpace = THREE.SRGBColorSpace;
-  const setTitle = (text, meta) => {
-    const g = stripCanvas.getContext("2d");
-    const w = stripCanvas.width;
-    const h = stripCanvas.height;
-    // A plate, not a hole.
-    //
-    // This was filled flat #0a0910 - darker than anything around it - and the
-    // title is centred and short, so the ends of the strip carried no text and
-    // no glow. Against the lit bezel they read as a black block stuck to the
-    // side of the title, which is exactly what it looked like: an artifact.
-    // A plate with a graded face and a hairline edge reads as a part of the
-    // machine at every width the title happens to be.
-    const face = g.createLinearGradient(0, 0, 0, h);
-    face.addColorStop(0, "#1b1626");
-    face.addColorStop(0.55, "#120f19");
-    face.addColorStop(1, "#0c0a11");
-    g.fillStyle = face;
-    g.fillRect(0, 0, w, h);
-
-    g.strokeStyle = "rgba(214,140,230,0.20)";
-    g.lineWidth = 3;
-    g.strokeRect(1.5, 1.5, w - 3, h - 3);
-
-    g.textAlign = "center";
-    g.textBaseline = "middle";
-    g.font = "700 44px ui-monospace, Menlo, monospace";
-    g.letterSpacing = "9px";
-    g.shadowColor = hex(MAGENTA);
-    g.shadowBlur = 26;
-    g.fillStyle = hex(MAGENTA_HI);
-    g.fillText((text || "select title").toUpperCase(), w / 2, 46);
-    g.shadowBlur = 0;
-
-    if (meta) {
-      g.strokeStyle = "rgba(214,140,230,0.28)";
-      g.lineWidth = 2;
-      g.beginPath();
-      g.moveTo(w * 0.22, 78);
-      g.lineTo(w * 0.78, 78);
-      g.stroke();
-
-      g.font = "600 28px ui-monospace, Menlo, monospace";
-      g.letterSpacing = "7px";
-      g.fillStyle = "rgba(240,237,230,0.62)";
-      g.fillText(meta.toUpperCase(), w / 2, 110);
-    }
-    stripTex.needsUpdate = true;
-  };
-  setTitle("", "");
-
-  // ── case notes, under the screen ──
-  // Redrawn on every switch, like the title above it. The bezel had no room
-  // left - the glass runs down to within a hair of the title strip - so this
-  // takes the overhang below it, which was blank and faces the viewer almost
-  // square on.
+  // ── the plate under the screen ──
+  //
+  // Title, platform line, write-up and detail all on ONE surface.
+  //
+  // These were two meshes on two different faces: a title strip on the bezel
+  // and the case notes on the overhang below it. Two backgrounds, two borders,
+  // and a seam between them where the cabinet changes angle. One plate reads
+  // as a part somebody specified; two read as two things that happened to end
+  // up next to each other.
   const noteCanvas = document.createElement("canvas");
   noteCanvas.width = 2048;
-  noteCanvas.height = 698;
+  noteCanvas.height = 847;
   const noteTex = new THREE.CanvasTexture(noteCanvas);
   noteTex.colorSpace = THREE.SRGBColorSpace;
 
-  const setDetails = (desc, bullets) => {
+  let pTitle = "";
+  let pMeta = "";
+  let pDesc = "";
+  let pBullets = [];
+
+  function drawPanel() {
     const g = noteCanvas.getContext("2d");
     const w = noteCanvas.width;
     const h = noteCanvas.height;
-    g.fillStyle = "#14121a";
+    const tight = innerWidth < 860;
+    const PAD = tight ? 66 : 78;
+
+    const face = g.createLinearGradient(0, 0, 0, h);
+    face.addColorStop(0, "#1a1626");
+    face.addColorStop(0.5, "#121019");
+    face.addColorStop(1, "#0d0b12");
+    g.fillStyle = face;
     g.fillRect(0, 0, w, h);
-
-    g.strokeStyle = "rgba(214,140,230,0.22)";
+    g.strokeStyle = "rgba(214,140,230,0.20)";
     g.lineWidth = 4;
-    g.beginPath();
-    g.moveTo(60, 14);
-    g.lineTo(w - 60, 14);
-    g.stroke();
+    g.strokeRect(2, 2, w - 4, h - 4);
 
-    g.textAlign = "left";
     g.textBaseline = "middle";
 
     // Wrap to the panel rather than trusting a line to fit: these are real
@@ -1372,74 +1350,89 @@ function buildCabinet() {
       return out;
     };
 
-    // A phone gets fewer words at a bigger size. This panel is a fixed slice
-    // of a machine whose width is already capped by the viewport, so on a
-    // narrow screen the only way to make anything legible is to say less.
-    const tight = innerWidth < 860;
+    // Title at one end of the row, platform and year at the other.
+    const titleY = tight ? 92 : 82;
+    g.textAlign = "left";
+    g.letterSpacing = tight ? "5px" : "7px";
+    g.font = "700 " + (tight ? 84 : 72) + "px ui-monospace, Menlo, monospace";
+    g.shadowColor = hex(MAGENTA);
+    g.shadowBlur = 24;
+    g.fillStyle = hex(MAGENTA_HI);
+    g.fillText((pTitle || "select title").toUpperCase(), PAD, titleY);
+    g.shadowBlur = 0;
 
-    let y = tight ? 118 : 92;
+    if (pMeta) {
+      g.textAlign = "right";
+      g.letterSpacing = tight ? "3px" : "5px";
+      g.font = "600 " + (tight ? 36 : 31) + "px ui-monospace, Menlo, monospace";
+      g.fillStyle = "rgba(240,237,230,0.52)";
+      g.fillText(pMeta.toUpperCase(), w - PAD, titleY + (tight ? 6 : 5));
+    }
+
+    g.letterSpacing = "0px";
+    const ruleY = titleY + (tight ? 62 : 54);
+    g.strokeStyle = "rgba(214,140,230,0.26)";
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(PAD, ruleY);
+    g.lineTo(w - PAD, ruleY);
+    g.stroke();
+
+    g.textAlign = "left";
+    let y = ruleY + (tight ? 92 : 76);
     const descFont = tight
       ? "500 84px Spectral, Georgia, serif"
-      : "500 66px Spectral, Georgia, serif";
-    const descLines = wrap(desc || "", descFont, w - (tight ? 120 : 150));
-    for (const line of descLines.slice(0, 3)) {
+      : "500 62px Spectral, Georgia, serif";
+    for (const line of wrap(pDesc || "", descFont, w - PAD * 2).slice(0, 3)) {
       g.font = descFont;
       g.fillStyle = "rgba(240,237,230,0.94)";
-      g.fillText(line, tight ? 60 : 75, y);
-      y += tight ? 98 : 80;
+      g.fillText(line, PAD, y);
+      y += tight ? 98 : 76;
     }
 
-    // Every detail line used to be cut at its first wrapped line and closed
-    // with an ellipsis, so the panel under the screen read as three sentences
-    // that had all given up halfway. A line either fits here whole or it is
-    // not worth showing, so they wrap, and one that will not fit in what is
-    // left is dropped entirely rather than started and abandoned.
-    //
-    // The taller overhang means a phone gets these too now, where before there
-    // was only room for the description.
-    y += tight ? 26 : 22;
-    // Sized so a real detail line actually fits. At 62px the first of these
-    // wrapped to four lines, overflowed the plate, and the loop below broke on
-    // it - which meant a phone showed no detail at all while the bottom third
-    // of the panel sat empty. The check is doing its job; the type was wrong.
-    const bSize = tight ? 54 : 46;
+    // A line either fits here whole or it is not shown: an ellipsis on a
+    // portfolio panel reads as a sentence that gave up.
+    y += tight ? 24 : 22;
+    const bSize = tight ? 54 : 44;
     const bFont = "500 " + bSize + "px ui-monospace, Menlo, monospace";
-    const LEAD = tight ? 66 : 54;
-    const bx = tight ? 60 : 75;
-    for (const b of bullets || []) {
+    const LEAD = tight ? 68 : 54;
+    const indent = tight ? 42 : 36;
+    for (const b of pBullets) {
       g.font = bFont;
-      const lines = wrap(b, bFont, w - (tight ? 180 : 240));
-      if (y + (lines.length - 1) * LEAD > h - 40) break;
+      const lines = wrap(b, bFont, w - PAD * 2 - indent);
+      if (y + (lines.length - 1) * LEAD > h - 46) break;
       g.fillStyle = hex(MAGENTA_HI);
-      g.fillRect(bx, y - bSize * 0.32, tight ? 10 : 8, bSize * 0.62);
+      g.fillRect(PAD, y - bSize * 0.32, tight ? 9 : 8, bSize * 0.62);
       g.fillStyle = "rgba(240,237,230,0.66)";
       for (const line of lines) {
-        g.fillText(line, bx + (tight ? 44 : 33), y);
+        g.fillText(line, PAD + indent, y);
         y += LEAD;
       }
-      y += tight ? 18 : 14;
+      y += tight ? 16 : 14;
     }
     noteTex.needsUpdate = true;
+  }
+
+  const setTitle = (text, meta) => {
+    pTitle = text || "";
+    pMeta = meta || "";
+    drawPanel();
   };
-  setDetails("", []);
+  const setDetails = (desc, bullets) => {
+    pDesc = desc || "";
+    pBullets = bullets || [];
+    drawPanel();
+  };
+  setTitle("", "");
 
   const noteAt = onProfile(OVERHANG, 0.5);
   const notes = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.1, 0.375),
+    new THREE.PlaneGeometry(1.1, 0.455),
     new THREE.MeshBasicMaterial({ map: noteTex, toneMapped: false })
   );
   notes.position.set(0, noteAt.y, noteAt.z + LIFT);
   notes.rotation.x = -noteAt.tilt;
   group.add(notes);
-
-  const stripAt = onProfile(BEZEL_SEG, 0.09);
-  const strip = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.1, 0.155),
-    new THREE.MeshBasicMaterial({ map: stripTex, toneMapped: false })
-  );
-  strip.position.set(0, stripAt.y, stripAt.z + LIFT + 0.004);
-  strip.rotation.x = -stripAt.tilt;
-  group.add(strip);
 
   // Coin door, on the kickplate.
   const coin = new THREE.Mesh(
@@ -1503,10 +1496,10 @@ function buildCabinet() {
   const chrome = new THREE.MeshStandardMaterial({ color: 0xb9b6c4, roughness: 0.2, metalness: 1 });
   const rubber = new THREE.MeshStandardMaterial({ color: 0x131118, roughness: 0.9 });
 
-  for (const [side, ballColor] of [[-1, 0xe6394f], [1, 0x3f7fe6]]) {
+  for (const [side, ballColor] of [[-1, 0xe6394f]]) {
     const at = onDeck(0.4, 0.014);
     const stick = new THREE.Group();
-    stick.position.set(side * 0.5, at.y, at.z);
+    stick.position.set(side * 0.44, at.y, at.z);
     stick.rotation.x = deckTilt;
 
     const plate = new THREE.Mesh(plateGeo, chrome);
@@ -1541,8 +1534,10 @@ function buildCabinet() {
   }
 
   // Buttons: three per player, staggered up the deck in the usual arc.
-  const btnGeo = new THREE.CylinderGeometry(0.082, 0.082, 0.03, 40);
-  const ringGeo = new THREE.CylinderGeometry(0.094, 0.094, 0.012, 40);
+  // 0.090 against a 0.205 pitch leaves a real gap between caps. At 0.096 they
+  // were touching, and a row of touching discs reads as one shape.
+  const btnGeo = new THREE.CylinderGeometry(0.090, 0.090, 0.03, 44);
+  const ringGeo = new THREE.CylinderGeometry(0.102, 0.102, 0.012, 44);
   const btnColors = [0xf5a623, 0x14b87a, 0xe0245e];
   const CREDITS_COLOR = 0xffc45c;
 
@@ -2061,15 +2056,18 @@ export default function boot() {
     const backShift = ((-(DEPTH + LIFT) * Math.sin(BACK_YAW)) / HEIGHT) * backBand.h;
 
     const stages = [
+      // HERO - the machine, centred, and nothing else. There is no headline
+      // beside it to make room for any more: the page behind is a nav bar and
+      // this, so the cabinet takes the middle and stands at the size it wants
+      // rather than in whatever gap the copy left over.
       narrow
-        // A phone has no room beside the headline, so the machine sits low and
-        // angled under it - present from the first screen rather than fading
-        // up out of nothing, which read as though it had failed to load.
-        ? { x: vw * 0.62, y: vh * 0.82, h: vh * 0.52, ry: -0.36, rx: 0.05, op: 1 }
-        : { x: vw * 0.775, y: vh * 0.54, h: vh * 0.66, ry: -0.42, rx: 0.05, op: 1 },
-      // Looks down harder on a phone: the control panel is the surface that
-      // suffers most from foreshortening, and it carries the labels.
-      { x: vw * 0.5, y: zoom.y, h: zoom.h, ry: CENTRE_YAW, rx: narrow ? 0.26 : 0.15, op: 1 },
+        ? { x: vw * 0.5, y: vh * 0.52, h: vh * 0.62, ry: -0.30, rx: 0.08, op: 1 }
+        : { x: vw * 0.5, y: vh * 0.53, h: vh * 0.78, ry: -0.34, rx: 0.10, op: 1 },
+      // Looked at from above, the way you stand at a cabinet: the deck opens
+      // up and the keys on it read as keys rather than as ellipses. Harder
+      // still on a phone, where the deck is the surface that suffers most from
+      // foreshortening and it carries the titles.
+      { x: vw * 0.5, y: zoom.y, h: zoom.h, ry: CENTRE_YAW, rx: narrow ? 0.36 : 0.28, op: 1 },
       { x: vw * 0.5 - backShift, y: backBand.y, h: backBand.h, ry: BACK_YAW, rx: 0.06, op: 1 },
       { x: cornerX, y: cornerY, h: cornerH, ry: CORNER_YAW, rx: 0.03, op: 1 },
     ];
@@ -2184,12 +2182,15 @@ export default function boot() {
       // strip of the canvas never reach the glass. The roll is centred in what
       // is actually visible rather than run from the top of the bitmap, which
       // left it stacked under the header with a third of the screen empty.
-      const top = 196;
-      const bottom = h - 128;
+      // Inset from the glass. A tube is not a rectangle - the faceplate is a
+      // rounded superellipse and the phosphor falls off toward it - so a roll
+      // set to the full width of the bitmap ends up crowding its own edges.
+      const top = 214;
+      const bottom = h - 168;
       // Pitch is the gap BETWEEN entries, so it divides by the gaps, not by
       // the entries - dividing by the count left the roll set smaller than it
       // needed to be with room to spare underneath.
-      const ROW = 80; // a studio line plus the role beneath it
+      const ROW = 70; // a studio line plus the role beneath it
       const pitch = Math.min(140, (bottom - top - ROW) / Math.max(1, jobs.length - 1));
       const scale = Math.min(1, pitch / 118);
       const block = (jobs.length - 1) * pitch;
@@ -2197,34 +2198,37 @@ export default function boot() {
 
       jobs.forEach((job, i) => {
         const y = y0 + i * pitch;
+        const sub = y + Math.round(46 * scale);
 
+        // The studio gets the whole width. Sharing a line with the years put
+        // "BLUE GRAVITY STUDIOS" straight through "NOV 2023 - SEP 2024"; the
+        // years belong with the job title anyway, which is short.
         g.textAlign = "left";
         g.letterSpacing = "2px";
         g.font = "700 " + Math.round(46 * scale) + "px ui-monospace, Menlo, monospace";
         g.fillStyle = "rgba(240,237,230,0.95)";
-        g.fillText(job.studio.toUpperCase(), w * 0.1, y);
+        g.fillText(job.studio.toUpperCase(), w * 0.15, y);
 
-        if (job.years) {
-          g.textAlign = "right";
-          g.letterSpacing = "1px";
-          g.font = "500 " + Math.round(28 * scale) + "px ui-monospace, Menlo, monospace";
-          g.fillStyle = "rgba(240,237,230,0.5)";
-          g.fillText(job.years.toUpperCase(), w * 0.9, y);
-        }
         if (job.role) {
-          g.textAlign = "left";
           g.letterSpacing = "4px";
           g.font = "500 " + Math.round(31 * scale) + "px ui-monospace, Menlo, monospace";
           g.fillStyle = "rgba(214,140,230,0.85)";
-          g.fillText(job.role.toUpperCase(), w * 0.1, y + Math.round(46 * scale));
+          g.fillText(job.role.toUpperCase(), w * 0.15, sub);
+        }
+        if (job.years) {
+          g.textAlign = "right";
+          g.letterSpacing = "1px";
+          g.font = "500 " + Math.round(29 * scale) + "px ui-monospace, Menlo, monospace";
+          g.fillStyle = "rgba(240,237,230,0.62)";
+          g.fillText(job.years.toUpperCase(), w * 0.85, sub);
         }
       });
 
       g.textAlign = "center";
       g.letterSpacing = "8px";
       g.font = "600 27px ui-monospace, Menlo, monospace";
-      g.fillStyle = "rgba(240,237,230,0.55)";
-      g.fillText("PRESS ANY TITLE TO RESUME", w / 2, h - 104);
+      g.fillStyle = "rgba(240,237,230,0.62)";
+      g.fillText("PRESS ANY TITLE TO RESUME", w / 2, h - 84);
     });
   }
 
@@ -2550,7 +2554,12 @@ export default function boot() {
   const preMat = new THREE.ShaderMaterial({
     vertexShader: QUAD_VERT,
     fragmentShader: PREFILTER,
-    uniforms: { uTex: { value: null }, uThreshold: { value: 0.68 } },
+    // 0.82, not 0.68. At the lower threshold the mid-tones of a screen full of
+    // type were passing the bright pass, and the blur spread them back over the
+    // whole tube as a veil: the credits roll's black background measured (40,
+    // 35, 51) against a bezel of (49, 46, 61) - the picture area was no darker
+    // than the plastic around it, so the screen stopped reading as a screen.
+    uniforms: { uTex: { value: null }, uThreshold: { value: 0.82 } },
     depthTest: false,
     depthWrite: false,
   });
