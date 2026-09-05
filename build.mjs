@@ -468,25 +468,6 @@ const CSS = `
      running past it. */
   .a3d #contact { padding-bottom: 70vh; }
 
-  /* The machine stands in the hero, to the right of the headline - and the
-     copy was running straight underneath it. At 1100px wide the cabinet spans
-     x 727-977 while the paragraph runs to x 812, so every line of the pitch
-     had its last few words hidden behind a cabinet. Text disappearing under an
-     ornament is the single worst thing a portfolio can do.
-
-     So the copy stops where the machine starts. The reserve is proportional in
-     the middle of the range, where the two are actually fighting for room, and
-     bounded at both ends: below 300px the machine would sit on the text, and
-     above 520px the headline - which is clamped at 132px - would start to
-     wrap. It is only applied where the machine stands beside the copy; on a
-     phone it sits under the headline instead and the copy gets the full width.
-
-     !important because the template writes its layout inline, and an inline
-     padding beats a stylesheet rule without it. */
-  @media (min-width: 860px) {
-    .a3d #top .hero-copy { padding-right: clamp(320px, 38vw, 520px) !important; }
-  }
-
   /* The machine parks in the bottom-left of the contact section, so the copy
      there leaves it a column - the same bargain the hero makes, for the same
      reason. Sized to the parked cabinet: about 116px wide on a desktop and 88
@@ -514,6 +495,32 @@ const CSS = `
     font-size: 15px;
     line-height: 1.5;
     color: rgba(240,237,230,0.52);
+  }
+
+  /* Nav bar, machine, and the one section a visitor still has to act on.
+     The machine carries the writing now - titles and write-ups on the plate
+     under its screen, the stack on its back panel, the work history on its
+     tube - so repeating all of it on the page behind put a second copy of
+     everything BEHIND the thing displaying it.
+
+     Clipped, not deleted: it stays in the markup a crawler reads and in the
+     accessibility tree, and it is what the machine itself reads its content
+     from. The contact section stays visible on purpose - it is the one thing
+     the machine cannot do for a visitor, and the corner beat exists precisely
+     to park the cabinet out of its way. */
+  .a3d #top .hero-copy,
+  .a3d .stat-band,
+  .a3d .section-head,
+  .a3d #experience > div:first-child,
+  .a3d #stack > div:first-child,
+  .a3d #work > div:last-child {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0 !important;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0 !important;
   }
 
   .a3d .arcade-controls:focus-within {
