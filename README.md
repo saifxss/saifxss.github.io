@@ -1,306 +1,72 @@
-# saifxss.github.io
+# Saif Chamakhi's portfolio
 
-Portfolio and resume site for **Saif Chamakhi** — Unity developer.
+Two complete presentations of the same portfolio:
 
-Live: [saifxss.github.io](https://saifxss.github.io)
+- **Normal portfolio** (`index.html`, the default homepage): a refined version of the main-branch design, with a focused introduction, featured project, résumé shortcut, mobile navigation, and case-study browser.
+- **3D arcade** (`arcade.html`): an interactive Three.js cabinet. Profile, seven projects, experience, toolkit, contact information, education, languages, and résumé access live inside its screen. A visible link switches between versions.
 
-## How this repo works
+## Develop
 
-The site is designed in source design, which exports a single self-contained
-~900 KB bundle. That export is **an input, not the site**:
-
-```
-bundle/index.bundle.html   pristine source design export  <- replace this
-        |
-        |  node build.mjs
-        v
-preview.html               generated, committed — the whole site
-```
-
-**index.html is currently a hand-written holding page, not the site.** The
-cabinet is mid-rebuild, and a recruiter landing on a half-finished page is
-worse than landing on a deliberate one - so the front door is a short page
-carrying the name, the one-line pitch and the resume and contact links, marked
-`noindex` so a placeholder never becomes what this domain is known for. The
-real site is generated beside it as `preview.html`, which is also what you open
-to work on.
-
-To go live: swap the two files and point `OUT_HTML` in `build.mjs` back at
-`index.html`. Nothing else in the build cares about the name.
-
-`build.mjs` unpacks the bundle, applies every fix the raw export lacks —
-responsive breakpoints, SEO metadata, accessible contact links, keyboard focus
-states — and then **renders the template to finished HTML**. Hand-editing
-`index.html` is pointless: the next build overwrites it.
-
-The export is a client-side app: it downloads React and a template runtime,
-parses the page out of an `<x-dc>` block and renders it in the browser. That is
-not how this site ships. `prerender.mjs` runs the template at build time
-against the design's own logic class, so the generated page is ordinary markup. No
-React, no runtime, no `{{ }}` in the served page, and the site reads correctly
-with JavaScript switched off. The only script in the page itself is ~60 lines
-of vanilla JS for the cabinet and the scroll reveal; the 3D cabinet is a
-separate module that loads after first paint, and only where it can run at all
-(see **The 3D cabinet** below).
-
-## Updating the design
-
-1. Export the new bundle from source design.
-2. Replace `bundle/index.bundle.html` with it.
-3. `npm run build`
-4. Commit `index.html` — GitHub Pages serves static files and never runs a
-   build.
-
-**If a transform fails**, the build stops and names it, e.g.:
-
-```
-transform "cls-contact": expected 1 match(es), found 0.
-The bundle's markup changed. Update this transform in build.mjs.
-```
-
-That is deliberate. A re-export that moves the markup a fix depends on will
-fail the build rather than silently ship a regression. Find the new markup in
-the export and update that transform's selector.
-
-## Viewing locally
+Requires Node.js 20 or newer. Building and serving need no dependencies.
 
 ```sh
-npm run serve   # http://localhost:8000
+npm run build
+npm run serve
+# Normal: http://localhost:8000/
+# Arcade: http://localhost:8000/arcade.html
 ```
+
+GitHub Pages publishes the committed static files on `main`. Building generates local files; publish a reviewed build by pushing it to `main`.
+
+## Source and generated files
+
+- `bundle/index.bundle.html`: original design export and portfolio content.
+- `build.mjs`, `prerender.mjs`: asserted export transforms, media resolution, and static rendering.
+- `build-experiences.mjs`: derives both presentations from the shared content.
+- `templates/arcade.html`, `css/machine.css`: arcade shell and responsive screen layouts.
+- `js/machine-ui.js`: sections, projects, accessible DOM controls, video playback, and fallback.
+- `js/machine-scene.js`: cabinet geometry, materials, camera, screen projection, physical controls, and GPU lifecycle.
+- `css/classic.css`, `js/experience.js`: normal-version presentation and controls.
+- `index.html`, `arcade.html`, `preview.html`, `classic.html`: generated output committed for GitHub Pages. Do not hand-edit these files. `classic.html` preserves old normal-version links; `preview.html` duplicates the arcade. Both compatibility copies are excluded from indexing and use the production canonical URLs.
+- `js/arcade3d.js`: preserved earlier prototype; neither current presentation imports it.
+- `serve.mjs`: local HTTP server with video range-request support.
+- `legacy/`: archived previous site, excluded from indexing.
+
+Run the build after editing source. CSS and JavaScript entry points use content hashes. No React or client-side template runtime is shipped. Fonts are optional, with system fallbacks.
+
+## The arcade experience
+
+Click or tap the screen to browse selected work. A colourful 90s arcade room surrounds a bevelled cabinet with cyan sides, pink trim, a striped marquee, and a yellow control deck. The camera frames both the CRT and the whole control board; the screen adapts to a readable portrait shape on phones. Both surfaces contain real HTML projected onto the cabinet, so text, links, scrolling, video, and keyboard navigation work normally.
+
+Drag the cabinet or room with a mouse or one finger to rotate through 360°. The rotation toolbar provides keyboard-accessible 45° steps and a reset view. A drag does not activate the screen. Screen and board content hide behind the cabinet at rear angles, and opening a portfolio section returns the cabinet to the front for reading. Rotation renders only while the view changes and honours reduced motion.
+
+The joystick and arrow buttons browse all seven projects. Six labelled control-board buttons open Profile, Work, Experience, Toolkit, Contact, and the résumé. These native buttons support mouse, touch, keyboard focus, and activation. The board stays visible while screen content scrolls, and a footer hint indicates additional content below. On short landscape screens, the board provides section navigation to preserve reading space. On-screen project selectors support Left/Right and Home/End. Escape or **Cabinet** returns to the overview. Direct section links work, for example `/arcade.html#work` or `/arcade.html#contact`. `/arcade.html?no3d` redirects to the normal version.
+
+Reduced motion removes camera animation and automatic video playback. Save-Data skips the 3D download. Unsupported WebGL2, a failed scene module, or WebGL context loss produces a static cabinet that retains all screen content. The normal version also works without JavaScript and exposes all project case notes.
+
+The renderer runs on demand, stopping when the camera settles. Device pixel ratio is capped at 1.25 for touch and 1.5 for desktop, with a 2.6-million-pixel ceiling on the WebGL buffer and a lower resolution after sustained slow frames. Text and controls remain native-resolution HTML. Section changes do not resize the WebGL buffer. Touch transitions are capped at 30fps. Background tabs pause rendering and video. Videos render directly in the screen's HTML instead of using a second decoder for a texture. Scene teardown releases geometry, materials, textures, event listeners, and animation callbacks.
+
+The cabinet uses procedural geometry, canvas artwork, and local Three.js modules; no external model or CDN is required. Vendor Three.js files are pinned together at r185.
 
 ## Project media
 
-Two folders feed the arcade panel, and **`gifs/` overrides `images/`**:
+`gifs/` takes precedence over `images/`. Matching ignores extensions, punctuation, and case; ambiguous matches fail. MP4/WebM files use optional `.poster.jpg` frames, other files render as stills, and missing footage uses an NDA placeholder. Files over 2 MB produce build warnings. Original GIF captures are archived under `legacy/gifs/`; see `gifs/README.md` for encoding instructions.
 
-```
-gifs/    animated captures   <- wins
-images/  static stills       <- fallback
-```
+## Verification
 
-`build.mjs` resolves each project's `shot:` name against both, then prints the
-full mapping and the file size on every run:
+Browser checks require Playwright and Chromium:
 
-```
-Task 2: 7 with media, 0 without:
-     maleficus-arena.png      <- gifs/maleficus.mp4  (name differs)  1.7 MB
-     tikto-king-board.png     <- images/tikto.king-board.jpg  250 KB
-     shells-and-tails.png     <- images/shells_and_tails.png  1.6 MB
+```sh
+npm install
+npx playwright install chromium
+npm run serve
+# In another terminal:
+npm test
+npm run test:polish
 ```
 
-Matching is by name, ignoring extension, case, dots, dashes and underscores —
-so `saniboy.png` resolves for `saniboy-gameplay.png`. An ambiguous match is
-refused and reported rather than guessed. A project with no file in either
-folder renders **"No footage — NDA restricted"** instead of a broken image.
+The suite checks both versions at 320–2560px, portrait and short landscape screens, all seven project case notes, native control-board targets, keyboard focus, high-DPI touch, live orientation changes, reduced motion, context loss, Save-Data, unavailable WebGL, module failure, and JavaScript-disabled normal content. It verifies that the board remains below the screen, every control stays inside the viewport, and control targets meet a 44px size with a 1px projection tolerance. Screenshots go to ignored `test-results/`; uncaught browser errors fail the suite.
 
-Files over 2 MB are flagged loudly. This media is the arcade panel's Largest
-Contentful Paint, so its weight goes straight to the Lighthouse score.
+The polish checks exercise mouse and touch rotation, back-face hiding, reset, keyboard rotation, automatic front framing, mobile menus, and normal-project selection across narrow and desktop layouts.
 
-**Ship video, not GIF.** A `.mp4`/`.webm` renders as an autoplaying muted
-`<video>` with a poster frame; anything else renders as an `<img>`. The build
-chooses the element from the extension, so there is nothing to configure. The
-three captures here were GIFs until August 2026:
-
-```
-62.6 MB of GIF  ->  2.9 MB of H.264   (same 640x360 at 10 fps)
-```
-
-The originals are archived in `legacy/gifs/`. See `gifs/README.md` for the
-ffmpeg command and how poster frames work.
-
-Resolution is build-time by necessity as well as by choice: the page is
-rendered before it ships, so a missing file is caught here rather than 404-ing
-in a visitor's browser.
-
-## What build.mjs fixes
-
-| Area | Fix |
-|---|---|
-| Responsive | Breakpoints at 1024 / 768 / 480px; the export ships none |
-| Performance | ~570 KB of inlined woff2 swapped for a Google Fonts link |
-| SEO | Title, description, canonical, Open Graph, JSON-LD (export title is "Bundled Page") |
-| No-JS | The page is prerendered, so it reads fully with JS off |
-| Weight | ~210 KB of React + runtime removed; nothing to download before first paint |
-| Contact | Raw address hidden behind an "Email" label; LinkedIn + Resume added; aria-labels |
-| A11y | `lang="en"`, `:focus-visible` rings, `prefers-reduced-motion`, 44x44 touch targets |
-| 3D | Hooks for the Three.js cabinet: two classes, mount points, hashed module URL |
-
-## The 3D cabinet
-
-`js/arcade3d.js` builds a real arcade cabinet in Three.js and flies it down the
-page with the scroll:
-
-```
-hero            right of the headline, angled, idling
-work section    ZOOMS IN on the screen and the control deck and HOLDS
-below that      pulls back small into the bottom-left corner
-section end     fades out
-```
-
-The zoom is a real dolly-in, not just a bigger cabinet: it frames a **band** of
-the machine - from under the deck's front edge to over the top of the monitor
-bezel - and lets the marquee and the coin door crop out of frame. `frameBand()`
-solves the full cabinet height backwards from how much room that band is
-supposed to fill, and places the machine so the BAND's middle sits at the
-viewport's middle, which is what stops a zoom from drifting off centre as it
-tightens.
-
-Width is a constraint there, not an afterthought. Framed that tightly the band
-is wider than a phone, so whichever limit binds first wins: on a 1440x900
-desktop the band takes **86% of the viewport height** at 543px wide, and on a
-390x844 phone it is width-bound at 367px, which works out at 62% of the height.
-
-Because the zoomed machine is wider than the gap beside the work heading, the
-hold is anchored on the **cabinet block** rather than on the section top - it
-begins once the heading has scrolled out of frame, instead of fighting it for
-the room. The later stops hang off the work section's bottom, because the
-cabinet block is only ~820px tall, less than a viewport, and anchoring five
-stops to it collapses them into each other.
-
-At that size two things on the machine become readable, so they carry real
-content rather than decoration. The bezel under the tube is a title card: the
-project name lit like a marquee, and under a hairline rule the platform, the
-year and the position in the reel. All three are read off the panel below
-rather than kept in a list here, so they cannot drift from what the section
-says. And the control deck carries a brushed-steel instruction plate -
-engraved lettering, screws at the corners - saying what the joysticks and
-buttons are for.
-
-The corner rest then runs past the projects and through the section after
-them, so the machine stays with you for about 1500px of scrolling rather than
-being dismissed the moment the work ends. Where it parks is measured, not
-fixed: it sits clear of the copy where the gutter allows (44px on the desktop)
-and never hides more than about half of itself where it does not. A phone has
-20px of gutter, so there the machine is simply made smaller instead.
-
-### It is an overlay. The page underneath does not change.
-
-This is a deliberate reversal of how it used to work. An earlier version
-reshaped the flat cabinet under `html.a3d` - hid its marquee, collapsed its
-screen to a title card - and MOVED the capture out of the panel and onto the
-tube, which was fine while the machine stayed docked beside it for the whole
-section. It is not fine now that the machine dissolves partway down: the panel
-would be left holding an empty frame the moment it went.
-
-So the tube runs **its own copy** of the capture, and the markup underneath is
-untouched. A still costs nothing extra - only the URL is needed - and a video
-costs one more decode of a file the browser has already cached, paid only
-while the machine is on screen and paused the moment it fades. The build's
-transforms now only ADD two classes and the mount points; delete
-`js/arcade3d.js` and the page is what it was.
-
-Touch is handled as touch, not as a mouse with a shorter arm. On a coarse
-pointer nothing is dragged and nothing calls `preventDefault`, because a
-finger landing on a cabinet that fills the screen is usually starting a
-scroll: controls are worked by tapping, and a press that travels more than
-12px is treated as the scroll it was. The buffer is also capped at 1.4x
-device pixels below 860px rather than 1.75x.
-
-The screen runs the selected project's own capture as a texture, under a CRT
-shader (barrel glass, aperture grille, a roll on every switch). The two
-joysticks and six buttons are live: push a stick left or right, or hit a
-button, and the title changes. There is no model file and no image on the wire.
-The body is one extruded side profile, and the marquee, side art, control panel
-and coin door are drawn into canvases at boot.
-
-What stops it reading as a render pasted onto a page, roughly in order of how
-much each one earns:
-
-- **It stands on something.** A drop shadow is useless on a near-black page, so
-  the ground is the opposite: the machine lights the floor it stands on, with
-  the lit face streaking toward the viewer. A tight dark patch underneath does
-  the contact where the page is light enough to show it.
-- **The glass has room light on it.** Two soft bands riding on the viewing
-  angle, so the highlight slides across the tube as the cabinet turns. Without
-  it the screen reads as a hole cut in the bezel.
-- **The travel has mass.** The keyframes give a target every frame and the
-  cabinet is not snapped to it: an under-damped spring chases it, and rotation
-  is chased more softly than position, so the machine swings into place a beat
-  behind where it is going.
-- **It is never quite still.** The marquee tube stutters the way a fluorescent
-  does, and between presses a light runs across the buttons: attract mode.
-- **The two control surfaces are one object.** Whether you push a joystick or
-  click a title in the button row below, the sticks flick the way the selection
-  travelled. Driving the row while the sticks sat still made the cabinet look
-  like a screen someone else was operating.
-- **The light is real light.** Every glow started out faked with an additive
-  sprite, which is why the halo round the tube took three attempts to stop
-  reading as a donut hanging in front of the cabinet. The emissive parts now
-  declare themselves with a layer, get drawn into a half-resolution target,
-  bright-passed, blurred separably and added back over the finished frame - so
-  the tube throws light onto its own bezel. Added OVER the frame rather than
-  replacing it, because the canvas has to stay transparent: the page shows
-  through wherever the machine is dark, and the alpha rides the light where it
-  is not. A full composer would have meant handing tone mapping to an output
-  pass and re-tuning the whole look, for 44 KB of vendored addons; this is
-  about 120 lines and no new files. It costs ~6ms a frame on a desktop and is
-  switched off below 860px and on coarse pointers, where the sprites carry the
-  glow as before.
-- **Nothing is factory-new.** A grain map on roughness breaks up the specular
-  so the body stops looking injection-moulded; the side art is scuffed pale and
-  grimed dark across its bottom foot, where a real cabinet takes every shoe in
-  the arcade; and the control deck is worn faintly pale where two players'
-  hands would have rested. All drawn at boot, so none of it is on the wire.
-
-  The grain runs the full height of its tile and is used at repeat 1. The first
-  version scattered soft blotches and tiled them 3x7, and because the blotches
-  crossed the tile edges, every seam showed as a horizontal smear across the
-  bezel - seven evenly spaced ones, which reads as dirt rather than as a
-  material. Strokes that span the tile cannot produce that seam.
-
-**Nothing here is load-bearing.** The flat cabinet still renders, still holds
-its own capture, and is still the accessible control surface: the seven title
-buttons are the same real `<button>`s, and the joysticks drive them rather
-than bypassing them. Any of these and the visitor simply never sees the
-machine, with nothing else different about the page:
-
-| Condition | Why |
-|---|---|
-| No JavaScript | The page is prerendered; the work section is whole |
-| No WebGL2 | The loader probes for a context and gives up if refused |
-| `prefers-reduced-motion` | A cabinet flying down the page is exactly that motion |
-| Save-Data | ~750 KB of Three.js over a metered connection, for decoration |
-| Under 360px | No arrangement leaves the case notes readable |
-| `?no3d` in the URL | Escape hatch, for comparing the two |
-
-Crossing that floor either way is handled live: shrink the window past it and
-the cabinet tears itself down, hands the capture back to the flat panel and
-restores the markup; widen it and it comes back.
-
-**Every gate says which one closed**, once, in the console:
-
-```
-[arcade3d] not running: the system asks for reduced motion
-[arcade3d] not running: opened from the filesystem. ES modules need an http:// origin
-```
-
-They were all silent to begin with, which made "why is there no cabinet" a
-question you could only answer by reading the source.
-
-Nothing here touches first paint. The module and Three.js are imported on
-`load`, and the module URL carries a hash of its own bytes so a deploy cannot
-be served a stale cabinet.
-
-```
-js/arcade3d.js              101 KB   (32 KB gzipped)
-vendor/three.*.min.js       733 KB  (184 KB gzipped)  pinned three@0.185.1
-```
-
-Both vendor files are needed: since r165 `three.module.min.js` imports the bulk
-of the library from `three.core.min.js` beside it. To upgrade, replace both
-from the same version tag and rerun the build.
-
-## Layout
-
-```
-bundle/     pristine source design export (build input)
-build.mjs   the build
-index.html  hand-written holding page (NOT generated)
-preview.html  generated - the real site
-prerender.mjs  the template renderer used by the build
-assets/     portrait.png
-gifs/       animated captures (override images/)
-images/     static stills
-js/         arcade3d.js, the 3D cabinet (loaded after first paint)
-vendor/     pinned Three.js build
-legacy/     archived previous versions of the site
-```
+Optional environment variables: `PORTFOLIO_URL`, `PLAYWRIGHT_BROWSER_PATH`, and `PLAYWRIGHT_MODULE_PATH`. Mobile checks use browser emulation; physical iOS/Android GPU performance requires a device check.

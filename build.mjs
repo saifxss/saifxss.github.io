@@ -3,9 +3,9 @@
 //   bundle/index.bundle.html   (pristine export — the only file you replace)
 //        |
 //        v  node build.mjs
-//   preview.html   (generated, committed for GitHub Pages — the whole site)
+//   index.html + preview.html + classic.html (committed for GitHub Pages)
 //
-// index.html is a hand-written holding page and is NOT generated: see OUT_HTML.
+// Presentation source lives in templates/, css/, and js/.
 //
 // The export is a bundler-wrapped document: a loader unpacks a base64/gzip
 // manifest holding the real page. Editing that by hand is impractical and any
@@ -19,24 +19,16 @@
 //
 // The last stage RENDERS the template (see prerender.mjs), so what ships is
 // finished HTML. There is no client-side template engine, no React download,
-// and nothing to go wrong between the server responding and the page being
-// readable. index.html is the entire site.
+// and the normal version remains readable without JavaScript. The arcade
+// version builds its interactive screen from the same portfolio content.
 
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { createHash } from "node:crypto";
 import { extname } from "node:path";
 import { runInNewContext } from "node:vm";
 import { findBlock, createContext, renderTemplate } from "./prerender.mjs";
+import { buildExperiences } from "./build-experiences.mjs";
 
 const BUNDLE = "bundle/index.bundle.html";
-// The build no longer owns index.html. That file is a hand-written holding
-// page while the cabinet is being finished, so the site a recruiter lands on
-// is deliberate rather than half-rebuilt. The real site is generated beside it
-// and is what you open to work on: preview.html.
-//
-// To go live: swap the two files (preview.html becomes index.html) and point
-// this back at "index.html". Nothing else in this build cares about the name.
-const OUT_HTML = "preview.html";
 
 const SITE = "https://saifxss.github.io";
 const EMAIL = "chamakhiseif@gmail.com";
@@ -339,198 +331,6 @@ const CSS = `
     .ticker-track { transform: none !important; }
   }
 
-  /* ══ the 3D cabinet ══
-     Every rule here is scoped to html.a3d, which only arcade3d.js sets, and
-     only once a WebGL2 context is actually running. Nothing below applies to a
-     visitor without JS, without a GPU, on a phone, or with reduced motion on:
-     they get the flat cabinet, unchanged. */
-  /* opacity is written every frame by the scroll choreography, so there is
-     deliberately no transition here: one would smear behind the scroll. The
-     fade-in at boot is a ramp inside the render loop instead. */
-  #a3d {
-    position: fixed; inset: 0; z-index: 3;
-    opacity: 0; visibility: hidden;
-    /* The cabinet floats over the page for most of its travel, so it must
-       never eat a click. arcade3d.js hit-tests on window events instead. */
-    pointer-events: none;
-  }
-  .a3d #a3d { visibility: visible; }
-  #a3d canvas { display: block; width: 100%; height: 100%; }
-
-  /* Where the capture sits while the tube is showing it. On screen and at a
-     real size, because a display:none video stops decoding and the texture
-     freezes; fully transparent and behind the page, because nobody should see
-     it twice. */
-  #a3d-src {
-    position: fixed; left: 0; top: 0; z-index: -1;
-    width: 320px; height: 180px; overflow: hidden;
-    opacity: 0; pointer-events: none;
-  }
-  #a3d-src video, #a3d-src img { width: 100%; height: 100%; object-fit: cover; }
-
-  /* Under html.a3d the machine IS the work section's cabinet, so the flat one
-     gives up the parts the machine now provides: its marquee, its CRT pane and
-     its own moulded chrome. Two cabinets on one screen is the thing this is
-     here to avoid.
-
-     What it does NOT give up is the writing. The case notes, the title row and
-     the button row all stay exactly where they were, because they are the
-     section's actual content and no canvas should be the only place a visitor
-     can read it - not with JavaScript off, not in a screen reader, not in a
-     search result. The machine covers them while it is held at full size and
-     uncovers them as it leaves for the corner. */
-  .a3d .cab-marquee,
-  .a3d .cab-1p,
-  .a3d .shot-scrim { display: none !important; }
-
-  .a3d .cab-shell {
-    border: 0 !important;
-    background: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    animation: none !important;
-  }
-
-  .a3d .cab-screenwrap {
-    margin-top: 0 !important;
-    background: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-  }
-
-  /* One column: the capture is on the tube, so the left pane is reduced to a
-     title card and the notes run the full width beneath it. The <video> itself
-     stays in the DOM - hidden, but present, because the tube reads its src off
-     this element to build its own copy. */
-  .a3d .arcade-screen {
-    grid-template-columns: 1fr !important;
-    min-height: 0 !important;
-  }
-  .a3d .cab-media {
-    min-height: 0 !important;
-    padding: 20px 24px 16px !important;
-    gap: 10px !important;
-    border-bottom: 1px solid rgba(240, 237, 230, 0.1);
-  }
-  .a3d .cab-media .shot-media,
-  .a3d .cab-media .no-footage { display: none !important; }
-
-  /* The old flat panel is off the page now: the machine carries the title, the
-     credits and the case notes itself. What it does NOT do is delete them.
-     They are clipped out of sight rather than display:none, which keeps them
-     in the accessibility tree and in the markup a crawler reads - the content
-     is the portfolio, and a canvas is the one place nothing can get at it.
-
-     The title buttons come back the moment they are tabbed to. A keyboard user
-     losing the only visible control is a real regression; a sighted mouse user
-     never sees them because the machine's own panel is right there. */
-  .a3d .cab-media,
-  .a3d .cab-notes,
-  .a3d .arcade-controls {
-    position: absolute !important;
-    width: 1px; height: 1px;
-    margin: -1px; padding: 0 !important;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0 !important;
-  }
-  /* The machine carries these now: the stack is on its spec plate and the
-     experience rolls on its tube when CREDITS is pressed. Same treatment as
-     the work panel - clipped, not deleted, so the writing stays in the
-     accessibility tree and in the markup a crawler reads. */
-  .a3d #stack .stack-grid,
-  .a3d #experience .roles {
-    position: absolute !important;
-    width: 1px; height: 1px;
-    margin: -1px; padding: 0 !important;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0 !important;
-  }
-
-  /* Clipping the writing out of these sections took their HEIGHT with it, and
-     the machine's choreography is measured in scroll distance: a section 195px
-     tall cannot hold a pose for as long as it takes to read the panel that
-     pose exists to show. That is not a detail - it had collapsed the stack
-     beat to a one-pixel hold and pushed the corner beat past the furthest the
-     page can scroll, so neither ran.
-
-     The height IS the beat, so it is stated here rather than left to whatever
-     the emptied markup happens to measure. */
-  .a3d #stack,
-  .a3d #experience { min-height: 100vh; }
-
-  /* And the last beat needs somewhere to happen. A page stops scrolling one
-     viewport short of its end, so the final pose - anchored to the final
-     section - sits below every reachable position unless the page keeps
-     running past it. */
-  .a3d #contact { padding-bottom: 70vh; }
-
-  /* The machine parks in the bottom-left of the contact section, so the copy
-     there leaves it a column - the same bargain the hero makes, for the same
-     reason. Sized to the parked cabinet: about 116px wide on a desktop and 88
-     on a phone, plus room to breathe. */
-  .a3d #contact .contact { padding-left: 112px !important; }
-  @media (min-width: 860px) {
-    .a3d #contact .contact { padding-left: 158px !important; }
-  }
-
-  /* The experience section's writing is on the machine now - it rolls on the
-     tube when the amber key is pressed - so under html.a3d this section is a
-     heading above empty space, and a heading with nothing under it reads as
-     something that failed to load rather than as something deliberate.
-     Worse, it puts a recruiter one undiscovered button away from the entire
-     work history. This says where it went.
-
-     A CSS ::after rather than markup because the real content is still in the
-     DOM directly above, clipped: a screen reader and a crawler both get the
-     roles themselves, and this is a pointer for someone looking at pixels. */
-  .a3d #experience::after {
-    content: "Press the amber CREDITS key on the machine to roll the full history.";
-    display: block;
-    margin-top: 30px;
-    max-width: 46ch;
-    font-size: 15px;
-    line-height: 1.5;
-    color: rgba(240,237,230,0.52);
-  }
-
-  /* Nav bar, machine, and the one section a visitor still has to act on.
-     The machine carries the writing now - titles and write-ups on the plate
-     under its screen, the stack on its back panel, the work history on its
-     tube - so repeating all of it on the page behind put a second copy of
-     everything BEHIND the thing displaying it.
-
-     Clipped, not deleted: it stays in the markup a crawler reads and in the
-     accessibility tree, and it is what the machine itself reads its content
-     from. The contact section stays visible on purpose - it is the one thing
-     the machine cannot do for a visitor, and the corner beat exists precisely
-     to park the cabinet out of its way. */
-  .a3d #top .hero-copy,
-  .a3d .stat-band,
-  .a3d .section-head,
-  .a3d #experience > div:first-child,
-  .a3d #stack > div:first-child,
-  .a3d #work > div:last-child {
-    position: absolute !important;
-    width: 1px; height: 1px;
-    margin: -1px; padding: 0 !important;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0 !important;
-  }
-
-  .a3d .arcade-controls:focus-within {
-    position: static !important;
-    width: auto; height: auto;
-    margin: 0; padding: 26px 0 0 !important;
-    overflow: visible;
-    clip-path: none;
-    white-space: normal;
-  }
 </style>
 `;
 html = edit("responsive-css", html, "</helmet>", CSS + "</helmet>");
@@ -880,11 +680,9 @@ html = html.replace(/shot:\s*"([^"]+)"/g, (m, f) => {
 
 const PANEL = '<div style="position:relative;background-color:#17151E;background-image:repeating-linear-gradient(115deg,rgba(240,237,230,0.05) 0 1px,transparent 1px 9px);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:{{ active.anim }} 460ms cubic-bezier(.2,.8,.3,1)">';
 
-// Gameplay capture ships as H.264 rather than GIF: same 640x360 at 10fps, but
-// ~1/20th the bytes, and this media is the panel's Largest Contentful Paint.
-// The <video> is muted + playsinline so it autoplays everywhere a GIF would
-// have, and preload="none" keeps the six inactive panels off the wire until
-// the visitor selects them — only the poster frame is fetched up front.
+// Gameplay captures use H.264 with a poster. The page controller starts video
+// only while visible and permitted by motion/network preferences.
+// Inactive panels are inert templates, so their media is not fetched.
 //
 // Stills still get an <img>: a project whose media is a .png/.jpg takes the
 // second branch, so mixing the two across projects costs nothing.
@@ -895,7 +693,7 @@ const OVERLAY =
 
 html = edit("project-media", html, PANEL, PANEL + "\n" +
   '            <sc-if value="{{ active.vid }}">\n' +
-  '              <video class="shot-media" src="{{ active.media }}" poster="{{ active.poster }}" autoplay loop muted playsinline preload="none" tabindex="-1" aria-label="{{ active.title }} — gameplay capture, no audio" width="800" height="500"></video>\n' +
+  '              <video class="shot-media" src="{{ active.media }}" poster="{{ active.poster }}" loop muted playsinline preload="none" tabindex="-1" aria-label="{{ active.title }} — gameplay capture, no audio" width="800" height="500"></video>\n' +
   OVERLAY +
   '            </sc-if>\n' +
   '            <sc-if value="{{ active.img }}">\n' +
@@ -920,152 +718,25 @@ if (oversized.length) {
   ].join("\n");
 }
 
-// ══ 3D — the real arcade cabinet ══════════════════════════════════════════
-// js/arcade3d.js builds an actual cabinet in Three.js: extruded body, lit
-// marquee, a CRT running the project's own capture, two joysticks and six
-// buttons that switch titles. It travels with the scroll, from the right of
-// the hero, to the centre of the viewport at the work heading, to a docked
-// column on the left for the length of the section.
-//
-// It REPLACES the flat cabinet visually, but not structurally. The markup
-// below still renders, and still is the site under any of:
-//
-//   no JavaScript      the page is prerendered, so the work section is whole
-//   no WebGL2          the loader gives up before it imports anything
-//   under 360px        nothing at that width is worth the download
-//   reduced motion     a cabinet that flies down the page is exactly the
-//                      motion that setting exists to refuse
-//   Save-Data          750KB of Three.js over a metered connection
-//
-// So the transforms here only ADD hooks: two classes the module reads the page
-// through, and the mount points. Nothing is reshaped and nothing is taken
-// away - the machine is an overlay that dissolves, and the panel underneath
-// goes on carrying its own capture. Delete js/arcade3d.js and the page is
-// what it was.
-const A3D_SHELL = '<div data-reveal="1" style="position:relative;border:1px solid rgba(240,237,230,0.16);border-radius:26px 26px 8px 8px;background:linear-gradient(180deg,#1B1822 0%,#141219 46%,#100F14 100%);padding:26px 26px 30px;box-shadow:0 40px 90px rgba(0,0,0,0.55),inset 0 1px 0 rgba(240,237,230,0.09);animation:hum 5.5s ease-in-out infinite">';
-
-// The module needs to know where the work section's cabinet block starts, to
-// hang the scroll choreography off it. That is all this class does.
-html = edit("a3d-shell", html, A3D_SHELL,
-  A3D_SHELL.replace('<div data-reveal="1" style=', '<div data-reveal="1" class="cab-shell" style='));
-
-// The media pane, already carrying the <video>/<img> an earlier transform put
-// in it. The module reads that element to know what to copy onto the tube; it
-// never takes it, so the pane keeps working whether or not the 3D runs.
-html = edit("a3d-media", html, PANEL,
+// Stable hooks for the normal portfolio's project cards and responsive CSS.
+const CABINET_SHELL = '<div data-reveal="1" style="position:relative;border:1px solid rgba(240,237,230,0.16);border-radius:26px 26px 8px 8px;background:linear-gradient(180deg,#1B1822 0%,#141219 46%,#100F14 100%);padding:26px 26px 30px;box-shadow:0 40px 90px rgba(0,0,0,0.55),inset 0 1px 0 rgba(240,237,230,0.09);animation:hum 5.5s ease-in-out infinite">';
+html = edit("classic-shell", html, CABINET_SHELL,
+  CABINET_SHELL.replace('<div data-reveal="1" style=', '<div data-reveal="1" class="cab-shell" style='));
+html = edit("classic-media", html, PANEL,
   PANEL.replace("<div style=", '<div class="cab-media" style='));
 
-// The rest of the hooks html.a3d needs to hand the cabinet's chrome over.
-cls("a3d-marquee",
+cls("classic-marquee",
   '<div style="position:relative;border-radius:14px 14px 4px 4px;background:linear-gradient(180deg,oklch(0.34 0.12 320) 0%,oklch(0.24 0.1 320) 100%);border:1px solid oklch(0.62 0.16 320 / 0.45);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px;overflow:hidden">',
   "cab-marquee");
-cls("a3d-screenwrap",
+cls("classic-screenwrap",
   '<div style="margin-top:22px;border-radius:20px;background:#08080B;border:1px solid rgba(240,237,230,0.1);padding:16px;box-shadow:inset 0 0 60px rgba(0,0,0,0.9)">',
   "cab-screenwrap");
-cls("a3d-notes",
+cls("classic-notes",
   '<div style="position:relative;background:#0E0D13;border-left:1px solid rgba(240,237,230,0.1);padding:26px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto;animation:{{ active.anim }} 460ms cubic-bezier(.2,.8,.3,1)">',
   "cab-notes");
-cls("a3d-1p",
+cls("classic-1p",
   '<div style="display:flex;flex-direction:column;align-items:center;gap:9px">',
   "cab-1p");
-
-// The canvas and the capture holder go outside the design's markup entirely,
-// so a re-export cannot move them.
-// The module URL carries a hash of its own bytes. Without one, a browser with
-// no cache headers to go on falls back to heuristic freshness and can serve a
-// stale cabinet for minutes after a deploy; GitHub Pages sends no max-age.
-const A3D_SRC = "js/arcade3d.js";
-if (!existsSync(A3D_SRC)) throw new Error(`arcade3d: ${A3D_SRC} is missing.`);
-const A3D_HASH = createHash("sha256").update(readFileSync(A3D_SRC)).digest("hex").slice(0, 8);
-
-const A3D_MOUNT = `
-<div id="a3d" aria-hidden="true"><canvas></canvas></div>
-<div id="a3d-src" aria-hidden="true"></div>`;
-
-// Capability gate. Every branch that bails leaves the flat cabinet alone, and
-// the import is deliberately after load: nothing about the cabinet is allowed
-// to compete with first paint.
-const A3D_LOADER = `
-<script>
-(function () {
-  // The cabinet has a stacked layout now, so this is a floor rather than a
-  // desktop gate: below it there is no arrangement that leaves the case notes
-  // readable. 1180 used to live here, which is why most windows saw nothing.
-  var OK = "(min-width: 360px)";
-
-  // Every gate below leaves the flat cabinet alone, which is correct but was
-  // also completely silent: "why is there no 3D cabinet" had no answer short
-  // of reading this file. Each bail now says which gate closed. One line, and
-  // only when the cabinet does NOT run.
-  function bail(why) {
-    if (window.console && console.info) console.info("[arcade3d] not running: " + why);
-  }
-
-  if (location.protocol === "file:") return bail(
-    "opened from the filesystem. ES modules need an http:// origin - run a " +
-    "local server (npm run serve) and open http://localhost:8000 instead."
-  );
-  if (location.search.indexOf("no3d") > -1) return bail("?no3d is in the URL");
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return bail(
-    "the system asks for reduced motion (Windows: Settings > Accessibility > " +
-    "Visual effects > Animation effects)"
-  );
-  // ~750KB of Three.js over a metered connection, for decoration.
-  var net = navigator.connection;
-  if (net && net.saveData) return bail("the browser is in Save-Data mode");
-
-  // Probing for a context is the only honest test: a browser can advertise
-  // WebGL2 and still refuse one on a machine with no usable GPU.
-  var probe = document.createElement("canvas").getContext("webgl2");
-  if (!probe) return bail("this browser would not give up a WebGL2 context");
-  var kill = probe.getExtension("WEBGL_lose_context");
-  if (kill) kill.loseContext();
-
-  var live = null, pending = false, warnedNarrow = false;
-  function start() {
-    if (live || pending) return;
-    if (!matchMedia(OK).matches) {
-      if (!warnedNarrow) {
-        warnedNarrow = true;
-        bail("the window is " + innerWidth + "px wide; the cabinet needs 360px");
-      }
-      return;
-    }
-    pending = true;
-    import("./js/arcade3d.js?v=${A3D_HASH}")
-      .then(function (m) {
-        pending = false;
-        live = m.default();
-        // default() returns null when it cannot get a renderer up. That was
-        // silent, and it is not a rare case: a browser refuses a WebGL context
-        // to a page it is not currently showing, and opening a link in a
-        // background tab is a completely ordinary way to arrive here.
-        if (!live) bail(
-          "the renderer would not start. A browser refuses a WebGL context to " +
-          "a page it is not showing, so this is expected in a background tab - " +
-          "it retries as soon as the tab is looked at."
-        );
-      })
-      .catch(function (err) { pending = false; bail("the module failed to load - " + err); });
-  }
-  function stop() { if (live) { live.destroy(); live = null; } }
-
-  if (document.readyState === "complete") setTimeout(start, 150);
-  else addEventListener("load", function () { setTimeout(start, 150); });
-
-  addEventListener("resize", function () {
-    if (matchMedia(OK).matches) start(); else stop();
-  }, { passive: true });
-
-  // The retry the bail above promises. start() is guarded, so a cabinet that
-  // is already running is left alone.
-  addEventListener("visibilitychange", function () {
-    if (!document.hidden) start();
-  });
-})();
-</script>`;
-
-html = edit("a3d-mount", html, "</body>", A3D_MOUNT + A3D_LOADER + "\n</body>");
 
 // ══ TYPOGRAPHY — no em dashes ═════════════════════════════════════════════
 // Runs LAST, on the finished document, so every transform above can keep
@@ -1160,6 +831,10 @@ const RUNTIME_JS = `
     i = ((i % n) + n) % n;
     var panel = document.querySelector('template[data-arcade="' + i + '"]');
     if (!panel || !screen) return;
+    if (i === open) return;
+    screen.querySelectorAll("video").forEach(function (video) {
+      video.pause(); video.removeAttribute("src"); video.load();
+    });
     // Replacing the subtree rather than re-pointing the source is what keeps a
     // heavy capture from lingering: the old element is gone, so the browser has
     // nothing stale left to paint while the new one loads. It also replays the
@@ -1227,14 +902,15 @@ html = html.replace(/<script type="text\/x-dc"[\s\S]*?<\/script>\n?/, "");
 html = html.replace("</head>", helmet.inner + (pseudoCss ? `<style>\n  ${pseudoCss}\n</style>\n` : "") + "</head>");
 applied.push(`prerender(${projectCount} panels, ${pseudoCss.split("\n").length} pseudo rules)`);
 
-// ── emit ───────────────────────────────────────────────────────────────────
-const banner = "<!-- Generated by build.mjs from bundle/index.bundle.html. Do not edit by hand. -->\n";
-html = html.replace("<!DOCTYPE html>", "<!DOCTYPE html>\n" + banner.trim());
-writeFileSync(OUT_HTML, html);
-
+const experiences = buildExperiences(html, valsFor(0).projects);
+writeFileSync('index.html', experiences.classic);
+writeFileSync('arcade.html', experiences.arcade);
+writeFileSync('preview.html', experiences.arcade);
+writeFileSync('classic.html', experiences.classic);
+console.log('Built normal index.html + classic.html and 3D arcade.html + preview.html');
 const kb = (n) => (n / 1024).toFixed(1) + " KB";
-console.log(`${OUT_HTML}   ${kb(Buffer.byteLength(html))}   (bundle was ${kb(bundle.length)})`);
-console.log("no runtime, no React: the page ships as HTML.");
+console.log(`Arcade: ${kb(Buffer.byteLength(experiences.arcade))}; normal: ${kb(Buffer.byteLength(experiences.classic))}; original export: ${kb(bundle.length)}`);
+console.log("Static HTML and vanilla JavaScript; no React or template runtime.");
 console.log(`\n${applied.length} transforms applied:`);
 console.log("  " + applied.join(", "));
 console.log(`

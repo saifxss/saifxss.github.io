@@ -6,6 +6,11 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "serve": "python -m http.server 8000"
+    "serve": "node serve.mjs",
+    "test": "node tests/portfolio.mjs",
+    "test:polish": "node tests/polish.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
   }
 }

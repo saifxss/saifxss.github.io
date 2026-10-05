@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Saif Chamakhi · The Portfolio Arcade</title>
+  <meta name="description" content="Enter Saif Chamakhi's interactive portfolio arcade. Unity gameplay, UI architecture and multiplayer. Five years and nine shipped commercial titles.">
+  <meta name="theme-color" content="#21113e">
+  <meta property="og:title" content="Saif Chamakhi · The Portfolio Arcade">
+  <meta property="og:description" content="Unity gameplay, UI architecture and multiplayer. Explore the work inside an interactive 3D arcade cabinet.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://saifxss.github.io/arcade.html">
+  <link rel="canonical" href="https://saifxss.github.io/arcade.html">
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="css/machine.css?v=%%CSS%%">
+</head>
+<body>
+  <header class="room-bar"><span class="room-mark" aria-hidden="true"><b>SC</b> THE PORTFOLIO ARCADE</span><a class="normal-link" href="index.html">Normal portfolio <span aria-hidden="true">↗</span></a></header>
+  <div class="room" aria-hidden="true"><div class="room-halo"></div><canvas id="machine-canvas"></canvas><div class="room-floor"></div></div>
+  <div class="rotation-surface" id="rotation-surface" aria-hidden="true"></div>
+  <div class="boot-status" role="status"><span>SC / PORTFOLIO</span>Powering on the arcade…</div>
+  <main id="machine-screen" class="machine-screen" aria-label="Arcade portfolio screen">
+    <div class="screen-start" id="screen-start">
+      <span class="eyebrow">PLAYER 01 / UNITY DEVELOPER</span>
+      <h1>SAIF<br><span>CHAMAKHI</span></h1>
+      <p>Gameplay. UI systems. Multiplayer.<br>5+ years · 9 shipped commercial titles.</p>
+      <button type="button" class="start-button" id="start-button">EXPLORE MY WORK <span aria-hidden="true">→</span></button>
+      <span class="start-meta">PC / MOBILE / WEBGL · FREE PLAY</span>
+    </div>
+    <div class="screen-app" id="screen-app" hidden>
+      <header class="screen-header"><a href="#about" class="screen-brand">SAIF CHAMAKHI<span>UNITY DEVELOPER</span></a><button type="button" id="cabinet-back" class="icon-button" aria-label="Zoom out to the arcade cabinet">↙ <span>Cabinet</span></button></header>
+      <nav class="screen-nav" aria-label="Portfolio sections">
+        <button data-section="about" type="button" aria-current="page">Profile</button><button data-section="work" type="button">Work <span>07</span></button><button data-section="experience" type="button">Experience</button><button data-section="stack" type="button">Toolkit</button><button data-section="contact" type="button">Contact</button>
+      </nav>
+      <div class="screen-content" id="screen-content" tabindex="-1"></div>
+      <footer class="screen-footer"><span id="screen-location">01 / PROFILE</span><span><span class="power-dot"></span> <span id="screen-scroll-hint">READY PLAYER ONE</span></span></footer>
+    </div>
+  </main>
+  <nav id="machine-controls" class="machine-controls" aria-label="Arcade control board">
+    <div class="board-inner">
+      <div class="joystick-area">
+        <div class="joystick-actions"><button type="button" data-board-step="-1" aria-label="Previous project" class="direction-button">←</button><button type="button" data-board-step="1" aria-label="Joystick: next project" class="joystick"><span class="joystick-base"></span><span class="joystick-shaft"></span><span class="joystick-ball"></span></button><button type="button" data-board-step="1" aria-label="Next project" class="direction-button">→</button></div>
+        <span class="board-hint">PREV / NEXT PROJECT</span>
+      </div>
+      <div class="board-buttons">
+        <button type="button" data-board-section="about" class="board-button pink"><span class="button-cap">01</span><span class="button-label">Profile</span></button>
+        <button type="button" data-board-section="work" class="board-button blue"><span class="button-cap">02</span><span class="button-label">Work</span></button>
+        <button type="button" data-board-section="experience" class="board-button purple"><span class="button-cap">03</span><span class="button-label">Experience</span></button>
+        <button type="button" data-board-section="stack" class="board-button mint"><span class="button-cap">04</span><span class="button-label">Toolkit</span></button>
+        <button type="button" data-board-section="contact" class="board-button coral"><span class="button-cap">05</span><span class="button-label">Contact</span></button>
+        <a class="board-button cream" id="board-resume" target="_blank" rel="noopener"><span class="button-cap">↗</span><span class="button-label">Résumé</span></a>
+      </div>
+    </div>
+  </nav>
+  <div class="rotation-tools" id="rotation-tools" role="group" aria-label="Rotate the arcade cabinet" hidden>
+    <span class="rotation-label">DRAG TO ROTATE</span>
+    <button type="button" data-rotate="-1" aria-label="Rotate cabinet left">↶</button>
+    <button type="button" id="reset-view">Reset view</button>
+    <button type="button" data-rotate="1" aria-label="Rotate cabinet right">↷</button>
+  </div>
+  <p class="room-hint" id="room-hint"><span class="hint-overview">Good games. Thoughtful systems. <span>Tap the screen to explore.</span></span><span class="hint-focused">Choose a section on the control board · Scroll inside the screen</span></p>
+  <p class="fallback-note" id="fallback-note" hidden>Lightweight arcade mode · <a href="index.html">Normal portfolio ↗</a></p>
+  <div class="sr-only" role="status" id="machine-announcer"></div>
+  <noscript><div class="no-script">Explore the complete portfolio in the <a href="index.html">normal version ↗</a>.</div></noscript>
+  <script type="application/json" id="portfolio-data">%%DATA%%</script>
+  <script type="module" src="js/machine-ui.js?v=%%UI%%" data-scene="js/machine-scene.js?v=%%SCENE%%"></script>
+</body>
+</html>

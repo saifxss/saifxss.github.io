@@ -3,22 +3,10 @@
 // The work section ships a flat CSS cabinet: a marquee, a CRT pane holding the
 // gameplay capture, and a row of title buttons. That markup is the site with
 // JavaScript off, and it is still the accessible control surface. This module
-// adds a procedurally built cabinet over the top of it, rendered on one fixed
-// canvas, that travels with the scroll:
-//
-//   hero            right of the headline, angled, idling
-//   work section    ZOOMS IN on the screen and the control deck - the marquee
-//                   and the coin door crop out of frame - and HOLDS there
-//   below that      pulls back, shrinks, and parks in the bottom-left corner,
-//                   uncovering the panel it had been standing in front of
-//   section end     fades out
-//
-// It is an overlay, and it changes nothing about the page it sits on. That is
-// a deliberate reversal: an earlier version reshaped the flat cabinet and took
-// its capture for the tube, which only worked while the machine stayed docked
-// beside it for the whole section. Now that it dissolves partway down, the
-// panel has to still be whole when it goes - so the tube runs its own copy of
-// the capture, and the markup underneath is untouched.
+// adds a procedural cabinet on one transparent canvas, anchored to reserved
+// spaces beside the hero copy and the project's readable case notes. All
+// sections and controls remain available in the static HTML. The tube runs
+// its own media texture; the panel video pauses while the 3D view is active.
 //
 // Nothing here is loaded unless the page can use it: the loader in index.html
 // gates on WebGL2, prefers-reduced-motion, Save-Data and a 360px floor before
@@ -974,7 +962,7 @@ function environment(renderer) {
     if (o.geometry) o.geometry.dispose();
     if (o.material) o.material.dispose();
   });
-  return target.texture;
+  return target;
 }
 
 // ── the screen ─────────────────────────────────────────────────────────────
@@ -1008,6 +996,7 @@ const SCREEN_FRAG = `
   uniform float uMediaAspect; // so the capture is cover-cropped, never squashed
   uniform float uScreenAspect;
   uniform vec3  uTint;
+  uniform float uLines;       // beam lines across the tube, from its size on screen
   varying vec2 vUv;
   varying float vOff;
 
@@ -1061,12 +1050,59 @@ const SCREEN_FRAG = `
       col *= 0.55;
     }
 
-    // Aperture grille. Faded out wherever a stripe would land on less than a
-    // pixel, because at the sizes this cabinet travels through, a fixed
-    // frequency turns into moire the moment it out-runs the sampling.
-    float grilleHz = 210.0;
-    float perPixel = fwidth(vUv.y) * grilleHz;
-    col *= mix(1.0, 0.9 + 0.1 * sin(vUv.y * grilleHz), clamp(1.4 - perPixel, 0.0, 1.0));
+    // ── the beam ──
+    //
+    // Timothy Lottes' CRT model, which he released into the public domain
+    // ("PUBLIC DOMAIN CRT STYLED SCAN-LINE SHADER"). What was here before was a
+    // sine wave multiplied over the picture: it darkened stripes into the
+    // image but gave it no structure, so a soft 640x360 capture still read as
+    // a soft video that happened to be behind glass.
+    //
+    // A real tube draws each line as a gaussian beam, and the beam's WIDTH
+    // follows the brightness it is carrying. A bright line swells until it
+    // fills its gap; a dark line stays thin and leaves the gap open. That
+    // brightness-dependent structure is what makes low resolution look like a
+    // display rather than like a blur - the eye locks on to the lines.
+    //
+    // Two changes from the original, both because this tube moves through a
+    // 3D scene rather than filling the monitor:
+    //  - the line count is not the source's 360 rows. It is uLines, set every
+    //    frame from how many device pixels tall the tube is, so a line always
+    //    spans a few pixels. At 360 lines on a 260px tube you get moire, not
+    //    scanlines.
+    //  - energy is only partly conserved. Fully normalising a thin beam puts
+    //    its centre at nearly three times the input and clips the highlights.
+    float ly = uv.y * uLines;
+    float lineF = fract(ly) - 0.5;
+    float peak = clamp(max(max(col.r, col.g), col.b), 0.0, 1.0);
+    float bw = mix(0.30, 0.56, peak);
+    float beam = exp(-2.0 * lineF * lineF / (bw * bw));
+    // 0.88: the line still dims a little on average, which a real tube does,
+    // but not the fifth of the picture's brightness it cost at 0.7.
+    beam *= mix(1.0, 1.0 / (1.2533 * bw), 0.88);
+    // Faded where perspective still crowds the lines under ~3 device pixels.
+    float scanAmt = 1.0 - smoothstep(0.26, 0.44, uLines * fwidth(vUv.y));
+    // At full strength the gaps between lines went almost to black, and the
+    // picture read as seen through a venetian blind - the structure was there
+    // but it was hiding the footage it was meant to flatter. Blended back so a
+    // gap sits at about half brightness: unmistakably a raster, still a picture.
+    col *= mix(1.0, beam, scanAmt * 0.58);
+
+    // Lottes' aperture grille, in DEVICE pixels rather than tube coordinates:
+    // one RGB stripe per three pixels, whatever size the tube happens to be.
+    // Pinning the mask to the tube instead aliases the moment the machine is
+    // smaller than the phosphor pitch, and it spends most of the page small.
+    // Gentler than his 0.5 / 1.5 - that is tuned for a tube filling a monitor,
+    // and at this size it just tints everything.
+    float stripe = fract(gl_FragCoord.x / 3.0);
+    vec3 grille = vec3(0.93);
+    if (stripe < 0.3333) grille.r = 1.14;
+    else if (stripe < 0.6667) grille.g = 1.14;
+    else grille.b = 1.14;
+    // Kept under the scanlines, not level with them: at a 1.25x pixel ratio a
+    // three-pixel stripe is big enough to read as coloured grain, and stronger
+    // than this it tinted the whole picture purple and read as noise.
+    col *= mix(vec3(1.0), grille, scanAmt * 0.6);
     // The slow bright band every tube has. A gaussian, not a smoothstep: the
     // step had a hard leading edge that froze into a visible seam across the
     // picture in any still frame.
@@ -1242,6 +1278,7 @@ function buildCabinet() {
     uMediaAspect: { value: 16 / 9 },
     uScreenAspect: { value: SCREEN_W / SCREEN_H },
     uTint: { value: new THREE.Color(1, 0.985, 1.02) },
+    uLines: { value: 180 },
   };
   const screen = new THREE.Mesh(
     new THREE.PlaneGeometry(SCREEN_W, SCREEN_H, 20, 20),
@@ -1777,9 +1814,12 @@ export default function boot() {
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.3;
+  let qualityReduced = false;
+  let slowFrames = 0;
 
   const scene = new THREE.Scene();
-  scene.environment = environment(renderer);
+  const environmentTarget = environment(renderer);
+  scene.environment = environmentTarget.texture;
   const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 60);
   camera.position.set(0, 0, CAM_Z);
 
@@ -1822,266 +1862,49 @@ export default function boot() {
   fill.position.set(-2.4, -1.8, 3.2);
   scene.add(fill);
 
-  // ── layout measurement ──
-  // Everything the choreography needs in document coordinates, refreshed when
-  // the layout changes rather than every frame — a scroll handler that reads
-  // getBoundingClientRect on four elements is a layout thrash.
-  // One entry per held pose: the machine sits still between `in` and `out`,
-  // and travels to the next pose in the gap between one stop's `out` and the
-  // next one's `in`. There is one more keyframe than there are stops - the
-  // last one is the exit the machine fades into past the final hold.
-  //
-  // This replaced six hand-named marks. At four poses that was already hard to
-  // follow, and every new section meant two more letters.
-  const stops = [];
-  let fadeSpan = 1;
-  let wasNarrow = null; // so a breakpoint crossing can redraw the panels
-  let contentLeft = 0; // where the page's copy starts, for the corner rest
-  let vw = 0;
-  let vh = 0;
-
+  // The machine belongs to reserved spaces. Document coordinates keep it
+  // clear of headings, notes, navigation, and links at every viewport size.
+  const heroEl = document.querySelector(".hero-stage");
+  let vw = 0, vh = 0, wasNarrow = null;
+  let anchors = [];
+  let activeAnchor = -1;
   function measure() {
-    vw = innerWidth;
-    vh = innerHeight;
-    settled = false; // re-seat the springs; a resize is not a movement
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, vw < 860 ? 1.4 : 1.75));
-    glowOn = !matchMedia("(pointer: coarse)").matches && vw >= 860;
-
-    // The panels are drawn at a density that depends on the viewport, so
-    // crossing the breakpoint has to redraw them. Without this, a phone rotated
-    // to landscape keeps the one-word labels it was built with.
-    const nowNarrow = vw < 860;
-    if (wasNarrow !== null && nowNarrow !== wasNarrow) rebuildPanels();
-    wasNarrow = nowNarrow;
+    vw = innerWidth; vh = innerHeight;
+    settled = false;
+    const narrow = vw <= 768;
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, qualityReduced ? 1 : narrow || matchMedia("(pointer: coarse)").matches ? 1.25 : 1.5));
+    glowOn = !qualityReduced && !matchMedia("(pointer: coarse)").matches && vw >= 1100 && !(navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
+    if (wasNarrow !== null && (vw < 860) !== wasNarrow) rebuildPanels();
+    wasNarrow = vw < 860;
     renderer.setSize(vw, vh, false);
-    camera.aspect = vw / vh;
-    camera.updateProjectionMatrix();
-
-    const y = scrollY;
-    const work = workEl.getBoundingClientRect();
-    const shell = shellEl.getBoundingClientRect();
-
-    const workTop = work.top + y;
-    const shellTop = shell.top + y;
-    contentLeft = shell.left;
-
-    // Hero, then one stop per section the machine has business in.
-    const sec = (el) => {
-      const r = el && el.getBoundingClientRect();
-      return r ? { top: r.top + y, bottom: r.bottom + y } : null;
-    };
-    const stack = sec(stackEl);
-    const contact = sec(contactEl);
-
-    stops.length = 0;
-    // Beside the headline, from the top of the page.
-    stops.push({ in: -1e9, out: workTop - vh * 0.75 });
-    // The work section: zoomed onto the screen and the controls. Anchored on
-    // the cabinet block rather than the section top, because framed this
-    // tightly the machine is wider than the gap beside the work heading, so
-    // the hold has to begin once the heading has left the frame.
-    stops.push({ in: shellTop - vh * 0.02, out: shellTop + vh * 0.55 });
-    // Stack: turned round, so the back panel that carries it is what you see.
-    if (stack) stops.push({ in: stack.top + vh * 0.05, out: stack.bottom - vh * 0.2 });
-    // Contact: parked down in the bottom-left corner, out of the way.
-    if (contact) stops.push({ in: contact.top + vh * 0.05, out: contact.bottom - vh * 0.15 });
-    fadeSpan = vh * 0.5;
-
-    // A pose that is never held is a pose that does not exist.
-    //
-    // These windows are read off section geometry, and geometry can fail to
-    // provide. Ordering them with a bare max() did not fix that, it hid it:
-    // the stack beat came out as a ONE PIXEL hold - the machine turned to show
-    // its back panel and in the same instant began turning away - and the
-    // corner beat's window landed past the furthest the page can scroll, so it
-    // never ran at all. Both looked like animation bugs. Neither was.
-    //
-    // So the schedule is solved rather than clamped. Every hold gets a length
-    // worth holding, every gap enough room for the travel to read as movement,
-    // and the whole run is fitted into the range a reader can actually reach.
-    const HOLD = vh * 0.34;
-    const TRAVEL = vh * 0.42;
-
-    for (let i = 1; i < stops.length; i++) {
-      stops[i].in = Math.max(stops[i].in, stops[i - 1].out + TRAVEL);
-      stops[i].out = Math.max(stops[i].out, stops[i].in + HOLD);
-    }
-
-    // You can only scroll to a viewport short of the document's end, so the
-    // last hold has to end above that line - and the last stop is anchored to
-    // the last section, whose bottom IS the document's end. Left alone that
-    // beat is always out of reach. If the page cannot carry the full run,
-    // compress it evenly instead of letting the tail fall off the bottom.
-    const maxScroll = Math.max(0, document.documentElement.scrollHeight - vh);
-    const tail = stops[stops.length - 1];
-    const base = stops[0].out;
-    if (tail.out > maxScroll && tail.out > base) {
-      const k = clamp01((maxScroll - base) / (tail.out - base));
-      for (let i = 1; i < stops.length; i++) {
-        stops[i].in = base + (stops[i].in - base) * k;
-        stops[i].out = base + (stops[i].out - base) * k;
-      }
-    }
+    camera.aspect = vw / vh; camera.updateProjectionMatrix();
+    anchors = [heroEl, screenEl.querySelector(".cab-media")].filter(Boolean).map((el) => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left, top: r.top + scrollY, width: r.width, height: r.height };
+    });
   }
-
-  /**
-   * Where the machine is, as a float: whole numbers are the held poses, and
-   * the fraction between them is the travel. Past the last hold it runs on
-   * into the exit keyframe.
-   */
-  function stage() {
-    const y = scrollY;
-    const n = stops.length;
-    if (!n) return 0;
-    if (y <= stops[0].out) return 0;
-    for (let i = 0; i < n - 1; i++) {
-      if (y < stops[i + 1].in) {
-        return i + clamp01((y - stops[i].out) / Math.max(1, stops[i + 1].in - stops[i].out));
-      }
-      if (y <= stops[i + 1].out) return i + 1;
-    }
-    return n - 1 + clamp01((y - stops[n - 1].out) / fadeSpan);
-  }
-
-  // ── screen-space placement ──
-  // Keyframes are written in CSS pixels — a height in pixels and a position in
-  // the viewport — so they line up with the layout rather than with an
-  // arbitrary world scale. This converts one to the other at the z = 0 plane.
   const unitsPerPx = () => (2 * CAM_Z * Math.tan((FOV * Math.PI) / 360)) / vh;
-
-  // How wide the cabinet renders for a given height, at a given yaw: the body
-  // is WIDTH across and DEPTH deep, so turning it presents some of both. The
-  // centred beat sizes itself off this, so it can take the whole screen
-  // without ever growing into the work heading either side of it.
-  // Near enough face on to read as the machine presented to you, far enough
-  // off it to keep a lit edge and not flatten into a sprite.
-  const CENTRE_YAW = -0.07;
-  const CORNER_YAW = 0.34;
-  // Both terms are absolute: past a quarter turn cos goes negative, and a
-  // width cannot. Left signed, the stack pose - which is a yaw just past PI -
-  // asked for a negative height, and a negative scale does not merely shrink a
-  // model, it turns it inside out. The machine came back mirrored and the size
-  // of the room.
-  const spanPerHeight = (yaw) =>
-    (WIDTH * Math.abs(Math.cos(yaw)) + DEPTH * Math.abs(Math.sin(yaw))) / HEIGHT;
-
-  // The band the zoomed beat frames, in cabinet units off the floor: from just
-  // under the deck's front edge (PROFILE[2] is at 0.97) to just over the top of
-  // the monitor bezel (PROFILE[7] at 2.80). The marquee above and the coin door
-  // below leave the frame entirely, which is what makes this read as moving IN
-  // on the machine rather than as the machine simply getting bigger.
-  const BAND_LOW = 0.92;
-  const BAND_HIGH = 2.86;
-
-  /**
-   * Frame a horizontal band of the cabinet instead of the whole machine.
-   *
-   * Returns what a keyframe needs. `h` is still the FULL cabinet height in
-   * pixels, because that is the unit the rest of the choreography works in - it
-   * is just solved backwards from how much room the band should fill. `y` then
-   * places the cabinet's middle so the BAND's middle lands on `atY`, which is
-   * what stops the zoom from drifting off centre as it tightens.
-   *
-   * Width is a constraint, not an afterthought: framed this tightly the band is
-   * wider than a phone, so whichever of the two limits binds first wins.
-   */
-  function frameBand(low, high, fillH, fillW, yaw, atY) {
-    const h = Math.min((fillH * HEIGHT) / (high - low), fillW / spanPerHeight(yaw));
-    return { h, y: atY + ((low + high) / 2 - HEIGHT / 2) * (h / HEIGHT) };
-  }
-
-  function keyframes() {
-    const narrow = vw < 860;
-
-    // WORK - the zoom. Vertically it takes most of the screen; horizontally it
-    // is allowed to run past where the work heading sits, because by the time
-    // this holds the heading has scrolled out of the frame. It looks DOWN at
-    // the machine, which is the only way the control panel opens up enough to
-    // read the legend printed on it.
-    // The phone is allowed to run the machine slightly past the edges of the
-    // screen. Fitting the whole cabinet inside 390px leaves everything on it
-    // too small to read, and the parts that get cropped are the outer corners
-    // of the side panels - nothing anybody needs.
-    const zoom = frameBand(
-      BAND_LOW, BAND_HIGH,
-      vh * (narrow ? 0.8 : 0.86),
-      vw * (narrow ? 0.99 : 0.62),
-      CENTRE_YAW, vh * (narrow ? 0.44 : 0.5)
-    );
-
-    // CONTACT - parked small in the bottom-left corner, out of the way of the
-    // section that actually wants reading. It sits clear of the copy where the
-    // gutter allows it and never hides more than about half of itself where it
-    // does not; a phone has 20px of gutter against the desktop's 44, which no
-    // placement rule can buy room out of, so there it is made smaller instead.
-    const cornerH = Math.min(vh * (narrow ? 0.26 : 0.32), narrow ? 190 : 250);
-    const cornerW = cornerH * spanPerHeight(CORNER_YAW);
-    // Fully on screen, always.
-    //
-    // The floor here used to be 6% of the machine's own width, which put its
-    // CENTRE seven pixels from the edge of the viewport - nine tenths of the
-    // cabinet was outside it and the marquee read "...HAMAKHI". A machine
-    // parked half off the screen does not look parked, it looks like a bug,
-    // and this is the beat a recruiter is looking at while they decide whether
-    // to write to you.
-    const cornerX = Math.max(cornerW / 2 + (narrow ? 12 : 18), contentLeft - 8 - cornerW / 2);
-    const cornerY = vh - (narrow ? 10 : 22) - cornerH / 2;
-
-    // STACK - turned round, and held at the same size the zoom is: this is
-    // the machine's other face, not a footnote to it. The spring interpolates
-    // yaw, so travelling from the work pose's -0.07 to a little past PI IS the
-    // rotation; nothing has to animate it.
-    // The WHOLE machine, not a band of it. frameBand exists to frame the
-    // screen and the control deck, and neither is on this side - pointing it
-    // at the back zooms hard onto a blank panel, which is exactly what it did.
-    // Framed on the panel rather than on the whole cabinet: the feet and the
-    // very top carry nothing, and fitting them in shrank the spec plate to
-    // about 7px. This is the same trick the front uses, with the band moved to
-    // where the back keeps its content.
-    const BACK_YAW = Math.PI + 0.26;
-    const backBand = frameBand(
-      0.34, 3.06,
-      vh * (narrow ? 0.86 : 0.94),
-      vw * (narrow ? 0.99 : 0.66),
-      BACK_YAW, vh * 0.5
-    );
-
-    // Centred on the PANEL rather than on the cabinet's axis. The spec plate
-    // is on the back face, a little under a metre behind the pivot, and a yaw
-    // of 15 degrees off square swings that face a quarter of a unit to one
-    // side. Framing the machine's centre therefore put the one thing this beat
-    // exists to show off toward the edge of the screen, and on a phone ran it
-    // clean off. The offset is where the face actually is: z * sin(yaw), in
-    // the pixels-per-unit this pose is being drawn at.
-    const backShift = ((-(DEPTH + LIFT) * Math.sin(BACK_YAW)) / HEIGHT) * backBand.h;
-
-    const stages = [
-      // HERO - the machine, centred, and nothing else. There is no headline
-      // beside it to make room for any more: the page behind is a nav bar and
-      // this, so the cabinet takes the middle and stands at the size it wants
-      // rather than in whatever gap the copy left over.
-      narrow
-        ? { x: vw * 0.5, y: vh * 0.52, h: vh * 0.62, ry: -0.30, rx: 0.08, op: 1 }
-        : { x: vw * 0.5, y: vh * 0.53, h: vh * 0.78, ry: -0.34, rx: 0.10, op: 1 },
-      // Looked at from above, the way you stand at a cabinet: the deck opens
-      // up and the keys on it read as keys rather than as ellipses. Harder
-      // still on a phone, where the deck is the surface that suffers most from
-      // foreshortening and it carries the titles.
-      { x: vw * 0.5, y: zoom.y, h: zoom.h, ry: CENTRE_YAW, rx: narrow ? 0.36 : 0.28, op: 1 },
-      { x: vw * 0.5 - backShift, y: backBand.y, h: backBand.h, ry: BACK_YAW, rx: 0.06, op: 1 },
-      { x: cornerX, y: cornerY, h: cornerH, ry: CORNER_YAW, rx: 0.03, op: 1 },
-    ];
-
-    // One keyframe per stop, and the exit past the last of them.
-    const held = stages.slice(0, Math.max(1, stops.length));
-    const last = held[held.length - 1];
-    held.push({ ...last, y: last.y + vh * 0.1, h: last.h * 0.9, op: 0 });
-    return held;
+  function placement() {
+    // Pick whichever reserved stage occupies more of the visible viewport.
+    // Switching happens outside the reading column, with no scroll hijacking.
+    let best = -1, index = 0;
+    anchors.forEach((a, i) => {
+      const visible = Math.max(0, Math.min(vh, a.top + a.height - scrollY) - Math.max(76, a.top - scrollY));
+      if (visible > best) { best = visible; index = i; }
+    });
+    if (index !== activeAnchor) { activeAnchor = index; settled = false; }
+    const a = anchors[index];
+    const ry = index === 0 ? -0.32 : -0.12;
+    const span = (WIDTH * Math.abs(Math.cos(ry)) + DEPTH * Math.abs(Math.sin(ry))) / HEIGHT;
+    const h = Math.min(a.height * .83, a.width * .76 / span);
+    return { x: a.left + a.width / 2, y: a.top - scrollY + a.height * .51, h, ry, rx: index === 0 ? .08 : .16, op: best > 0 ? 1 : 0 };
   }
 
   // ── the flat cabinet's media, on the tube ──
   let mediaTex = null;
   let mediaEl = null;
+  let posterTex = null;
+  let playAttempted = false;
 
   /**
    * The credits line for the info plate: platform, year, position in the reel.
@@ -2105,7 +1928,7 @@ export default function boot() {
   function panelNotes() {
     const box = screenEl.querySelector(".cab-notes");
     if (!box) return { desc: "", bullets: [] };
-    const desc = (box.firstElementChild && box.firstElementChild.textContent || "").trim();
+    const desc = (box.querySelector(".project-heading + div")?.textContent || "").trim();
     const bullets = [...box.querySelectorAll("li")].map((li) => li.textContent.trim());
     return { desc, bullets };
   }
@@ -2250,9 +2073,12 @@ export default function boot() {
 
   function releaseMedia() {
     if (mediaTex && mediaTex !== creditsTex) mediaTex.dispose();
+    if (posterTex) posterTex.dispose();
+    posterTex = null;
     mediaTex = null;
-    if (mediaEl && mediaEl.parentNode === src) mediaEl.remove();
+    if (mediaEl) { mediaEl.pause(); mediaEl.removeAttribute("src"); mediaEl.load(); mediaEl.remove(); }
     mediaEl = null;
+    playAttempted = false;
   }
 
   /**
@@ -2267,6 +2093,7 @@ export default function boot() {
    */
   function syncMedia() {
     releaseMedia();
+    cab.screenUniforms.uMediaAspect.value = 16 / 9;
     const label = document.querySelector('.cab-btn[aria-pressed="true"] .cab-label');
     cab.setTitle(label ? label.textContent.trim() : "", panelMeta());
     const note = panelNotes();
@@ -2291,18 +2118,23 @@ export default function boot() {
       mediaEl = feed;
 
       mediaTex = new THREE.VideoTexture(feed);
+      if (el.poster) {
+        posterTex = new THREE.TextureLoader().load(el.poster);
+        posterTex.colorSpace = THREE.SRGBColorSpace;
+      }
       const aspect = () => {
-        if (feed.videoWidth) cab.screenUniforms.uMediaAspect.value = feed.videoWidth / feed.videoHeight;
+        if (feed === mediaEl && feed.videoWidth) cab.screenUniforms.uMediaAspect.value = feed.videoWidth / feed.videoHeight;
       };
       aspect();
       feed.addEventListener("loadedmetadata", aspect, { once: true });
     } else {
       mediaTex = new THREE.TextureLoader().load(el.currentSrc || el.src, (t) => {
+        if (t !== mediaTex) { t.dispose(); return; }
         if (t.image) cab.screenUniforms.uMediaAspect.value = t.image.width / t.image.height;
       });
     }
     mediaTex.colorSpace = THREE.SRGBColorSpace;
-    cab.screenUniforms.uMap.value = mediaTex;
+    cab.screenUniforms.uMap.value = posterTex || mediaTex;
     cab.screenUniforms.uHasMap.value = 1;
     cab.screenUniforms.uSwitch.value = 1;
   }
@@ -2330,7 +2162,7 @@ export default function boot() {
   // cabinet is usually starting a scroll, and on a narrow page the machine
   // fills most of the screen - so on a coarse pointer nothing is dragged,
   // nothing calls preventDefault, and a control is worked by tapping it.
-  const coarse = matchMedia("(pointer: coarse)").matches;
+  const touchInput = (ev) => ev.pointerType === "touch" || ev.pointerType === "pen";
   let tapAt = null;
 
   /** True while the machine has its back to the viewer. */
@@ -2389,7 +2221,11 @@ export default function boot() {
       }
       return;
     }
-    if (coarse || opacity < 0.5) return;
+    if (touchInput(ev) || opacity < 0.5) {
+      hovered = null;
+      if (cursorHeld) { cursorHeld = false; document.body.style.cursor = ""; }
+      return;
+    }
     hovered = pick(ev);
     const want = !!hovered;
     if (want !== cursorHeld) {
@@ -2425,10 +2261,10 @@ export default function boot() {
   }
 
   function onDown(ev) {
-    if (ev.button !== 0 || opacity < 0.5) return;
+    if (ev.button !== 0 || opacity < 0.5 || ev.target.closest("a, button, input, textarea, select")) return;
     const hit = pick(ev);
     if (!hit) return;
-    if (coarse) {
+    if (touchInput(ev)) {
       // Decide on the way up: swallowing this gesture would stop the page
       // scrolling under a cabinet that covers most of it.
       tapAt = { x: ev.clientX, y: ev.clientY, hit: hit };
@@ -2445,10 +2281,10 @@ export default function boot() {
   }
 
   function onUp(ev) {
-    if (coarse) {
+    if (touchInput(ev)) {
       const tap = tapAt;
       tapAt = null;
-      if (!tap || !ev) return;
+      if (!tap || !ev || ev.type === "pointercancel") return;
       // A finger that travelled was scrolling the page, not pressing a button.
       if (Math.abs(ev.clientX - tap.x) + Math.abs(ev.clientY - tap.y) > 12) return;
       fire(tap.hit);
@@ -2488,6 +2324,7 @@ export default function boot() {
     shownIndex = i;
     creditsOn = false;
     syncMedia();
+    measure();
   }
 
   // ── bloom ──
@@ -2691,6 +2528,26 @@ export default function boot() {
     cur[key] += vel[key] * dt;
   }
 
+  // ── the raster ──
+  // How many beam lines the tube draws, from how tall it is on screen right
+  // now: one line per ~3.4 device pixels, capped at the capture's own 360
+  // rows and floored where the tube is too small to carry a raster at all
+  // (the shader fades the lines out there rather than aliasing them).
+  // Eased rather than set, so the raster rescales as the machine zooms
+  // instead of stepping.
+  const tubeTop = new THREE.Vector3();
+  const tubeBottom = new THREE.Vector3();
+  let rasterLines = 180;
+  function tubeLines(dt) {
+    cab.screen.updateWorldMatrix(true, false);
+    tubeTop.set(0, SCREEN_H / 2, 0).applyMatrix4(cab.screen.matrixWorld).project(camera);
+    tubeBottom.set(0, -SCREEN_H / 2, 0).applyMatrix4(cab.screen.matrixWorld).project(camera);
+    const px = Math.abs(tubeTop.y - tubeBottom.y) * 0.5 * renderer.domElement.height;
+    const want = Math.min(360, Math.max(60, px / 3.4));
+    rasterLines += (want - rasterLines) * Math.min(1, dt * 8);
+    cab.screenUniforms.uLines.value = rasterLines;
+  }
+
   // ── loop ──
   let opacity = 1;
   // The one device check the renderer makes for itself: everything else is
@@ -2700,27 +2557,25 @@ export default function boot() {
   let glowOn = false;
   let running = true;
   let boot = 0; // 0 -> 1 over the first half second, so it fades in
+  const bootStart = performance.now();
   let last = performance.now();
   const clock = { t: 0 };
 
+  let raf = 0, idleTimer = 0;
   function frame(now) {
-    if (!running) return;
-    requestAnimationFrame(frame);
+    if (!running || document.hidden) return;
+    const interval = opacity < .004 ? 100 : matchMedia("(pointer: coarse)").matches ? 1000 / 30 : 1000 / 60;
+    if (now - last < interval - 1) { raf = requestAnimationFrame(frame); return; }
+    raf = requestAnimationFrame(frame);
     const dt = Math.min((now - last) / 1000, 0.05);
     last = now;
     if (document.hidden) return;
 
-    const t = stage();
-    const k = keyframes();
+    const A = placement();
+    const B = A;
+    const f = 0;
 
-    // Not `settled`: the spring already owns that name in this scope, and
-    // shadowing it here made the spring's own assignment throw every frame.
-    const i = Math.min(Math.floor(t), k.length - 2);
-    const f = smooth(clamp01(t - i));
-    const A = k[i];
-    const B = k[i + 1];
-
-    boot = Math.min(1, boot + dt * 2);
+    boot = Math.min(1, (now - bootStart) / 500);
     opacity = lerp(A.op, B.op, f) * smooth(boot);
     host.style.opacity = opacity.toFixed(3);
 
@@ -2731,17 +2586,22 @@ export default function boot() {
     // visit.
     if (mediaEl && mediaEl.tagName === "VIDEO") {
       const wanted = opacity > 0.06;
-      if (wanted && mediaEl.paused) {
+      if (mediaEl.readyState >= 2 && !creditsOn) cab.screenUniforms.uMap.value = mediaTex;
+      if (wanted && mediaEl.paused && !playAttempted) {
+        playAttempted = true;
         const play = mediaEl.play();
         if (play && play.catch) play.catch(() => {});
       } else if (!wanted && !mediaEl.paused) {
         mediaEl.pause();
+        playAttempted = false;
       }
     }
 
     if (opacity < 0.004) {
       // Parked past the work section: hold the frame, skip the draw.
       host.style.visibility = "hidden";
+      cancelAnimationFrame(raf);
+      idleTimer = setTimeout(() => { raf = requestAnimationFrame(frame); }, 100);
       return;
     }
     host.style.visibility = "";
@@ -2854,6 +2714,7 @@ export default function boot() {
     for (const b of cab.buttons) b.halo.visible = front;
 
     cab.screenUniforms.uTime.value = clock.t;
+    tubeLines(dt);
     cab.screenUniforms.uSwitch.value = Math.max(0, cab.screenUniforms.uSwitch.value - dt * 1.9);
     cab.screenGlow.material.opacity = (0.44 + Math.sin(clock.t * 2.2) * 0.05) * faceOn;
     // Turned back to face the camera, undoing the yaw the pivot applies to
@@ -2865,9 +2726,14 @@ export default function boot() {
     // Worth it on a desktop where the machine fills the screen; not worth it on
     // a phone GPU already carrying a video texture, so there the sprites carry
     // the glow on their own as before.
+    const renderStart = performance.now();
     if (glowOn) renderGlow();
     renderer.render(scene, camera);
     if (glowOn) compositeGlow(1.0 * opacity);
+    // Sustained slow drawing triggers a lower-cost quality tier for the visit.
+    // Ignore the one-off shader compilation cost; keep all controls and content.
+    slowFrames = performance.now() - renderStart > 38 ? slowFrames + 1 : Math.max(0, slowFrames - 1);
+    if (slowFrames >= 8 && !qualityReduced) { qualityReduced = true; measure(); }
   }
 
   // ── wire up ──
@@ -2887,16 +2753,29 @@ export default function boot() {
   const ro = new ResizeObserver(measure);
   ro.observe(document.documentElement);
   ro.observe(shellEl);
+  if (heroEl) ro.observe(heroEl);
 
   // Say out loud that the sticks work — the caption under the button row was
   // written for a page where the only controls were those buttons.
 
-  requestAnimationFrame(frame);
+  function onVisibility() {
+    cancelAnimationFrame(raf); clearTimeout(idleTimer);
+    if (document.hidden) { if (mediaEl) mediaEl.pause(); }
+    else { playAttempted = false; last = performance.now(); raf = requestAnimationFrame(frame); }
+  }
+  function onContextLost(ev) { ev.preventDefault(); document.dispatchEvent(new CustomEvent("arcade:contextlost")); }
+  document.addEventListener("visibilitychange", onVisibility);
+  canvas.addEventListener("webglcontextlost", onContextLost);
+  raf = requestAnimationFrame(frame);
 
   return {
     /** Undo everything, for a viewport that drops below the size gate. */
     destroy() {
       running = false;
+      cancelAnimationFrame(raf); clearTimeout(idleTimer);
+      document.removeEventListener("visibilitychange", onVisibility);
+      canvas.removeEventListener("webglcontextlost", onContextLost);
+      host.style.opacity = "0"; host.style.visibility = "hidden";
       document.documentElement.classList.remove("a3d");
       document.body.style.cursor = "";
       document.removeEventListener("arcade:change", onChange);
@@ -2907,12 +2786,15 @@ export default function boot() {
       removeEventListener("pointercancel", onUp);
       ro.disconnect();
       releaseMedia();
+      const disposed = new Set();
+      const disposeOnce = (resource) => { if (resource && !disposed.has(resource)) { disposed.add(resource); resource.dispose(); } };
       scene.traverse((o) => {
-        if (o.geometry) o.geometry.dispose();
+        disposeOnce(o.geometry);
         const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
         for (const m of mats) {
-          if (m.map) m.map.dispose();
-          m.dispose();
+          for (const value of Object.values(m)) if (value?.isTexture) disposeOnce(value);
+          for (const uniform of Object.values(m.uniforms || {})) if (uniform.value?.isTexture) disposeOnce(uniform.value);
+          disposeOnce(m);
         }
       });
       if (creditsTex) creditsTex.dispose();
@@ -2922,7 +2804,12 @@ export default function boot() {
       blurMat.dispose();
       preMat.dispose();
       glowMat.dispose();
+      environmentTarget.dispose();
       renderer.dispose();
+      renderer.forceContextLoss();
+      // A lost context cannot be reused. A fresh canvas also prevents a late
+      // contextlost event from the old renderer reaching the next instance.
+      canvas.replaceWith(document.createElement("canvas"));
     },
   };
 }
