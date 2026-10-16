@@ -30,6 +30,8 @@ Set `PORT` to use another local port. GitHub Pages publishes the committed stati
 
 Only The Amazing SaniBoy and Albert's Ark Idle are labelled publicly released, as confirmed by the portfolio owner. Other statuses distinguish completed work awaiting release, playtested prototypes, and unreleased studio projects. The two selected public releases are separate from the 20+ legacy titles restored and republished at StolenPad. Download/rating milestones describe SaniBoy, rather than claiming sole credit for a team's commercial outcome. The latest résumé documents game development since 2019 and professional studio work since 2023.
 
+After a résumé edit, generate the PDF before running `npm run build`. Download links include the PDF content hash so returning visitors receive the current version.
+
 ## Design direction
 
 The normal presentation uses graphite (`#0d1117`), slate surfaces (`#141a23` / `#1b2430`), warm ivory text (`#f2f0e9`), and amber actions (`#edbd72`). Ice blue (`#9fc4da`) supports technical labels; green (`#a4c9aa`) accompanies written release status. Information is never communicated by color alone.
