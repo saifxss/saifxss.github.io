@@ -29,19 +29,19 @@ function syncSelection() {
 }
 function show(index, { navigate = true } = {}) {
   const next = (index + projects.length) % projects.length;
+  if (navigate && isProjectPage) {
+    location.assign(`/projects/${projects[next].slug}/#work`);
+    return;
+  }
   if (next !== selected) {
     screen.querySelectorAll('video').forEach(video => { video.pause(); video.removeAttribute('src'); video.load(); });
     selected = next;
     screen.replaceChildren(document.querySelector(`template[data-case="${selected}"]`).content.cloneNode(true));
     syncSelection(); mountMedia();
   }
-  if (navigate) history.pushState({ project: selected }, '', isProjectPage ? `/projects/${projects[selected].slug}/#work` : `/?project=${projects[selected].slug}#work`);
+  if (navigate) history.pushState({ project: selected }, '', `/?project=${projects[selected].slug}#work`);
   status.textContent = `${projects[selected].title}, project ${selected + 1} of ${projects.length}`;
   document.title = `${projects[selected].title} | Saif Chamakhi · Unity Developer`;
-  if (isProjectPage) {
-    const canonical = new URL(`/projects/${projects[selected].slug}/`, location.origin).href;
-    document.querySelector('link[rel="canonical"]').href = canonical;
-  }
 }
 tabs.forEach((tab, index) => {
   tab.addEventListener('click', event => {
@@ -58,12 +58,13 @@ tabs.forEach((tab, index) => {
 select.addEventListener('change', () => show(Number(select.value)));
 document.querySelectorAll('[data-nav]').forEach(button => button.addEventListener('click', () => {
   show(selected + (button.dataset.nav === 'next' ? 1 : -1));
-  screen.scrollIntoView({ block: 'start', behavior: motion.matches ? 'instant' : 'smooth' });
+  if (!isProjectPage) screen.scrollIntoView({ block: 'start', behavior: motion.matches ? 'instant' : 'smooth' });
 }));
 addEventListener('popstate', () => {
-  const slug = isProjectPage ? location.pathname.split('/').filter(Boolean)[1] : new URLSearchParams(location.search).get('project');
+  if (isProjectPage) return;
+  const slug = new URLSearchParams(location.search).get('project');
   const index = projects.findIndex(project => project.slug === slug);
-  show(index < 0 ? projects.findIndex(project => project.slug === 'the-amazing-saniboy') : index, { navigate: false });
+  show(index < 0 ? 0 : index, { navigate: false });
 });
 screen.addEventListener('click', async event => {
   const button = event.target.closest('[data-share]'); if (!button) return;

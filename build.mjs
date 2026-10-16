@@ -9,7 +9,7 @@ for (const project of data.projects) {
   for (const path of [project.media, project.poster].filter(Boolean)) if (!existsSync(path)) throw new Error(`${project.slug}: missing local media ${path}`);
 }
 if (data.projects.filter(p => p.status === 'released').length !== 2) throw new Error('Release count must match the two confirmed public releases.');
-const selected = data.projects.findIndex(p => p.slug === 'the-amazing-saniboy');
+const selected = 0;
 const classic = renderClassic(data, selected);
 writeFileSync('index.html', classic); writeFileSync('classic.html', classic);
 for (const [index, project] of data.projects.entries()) {

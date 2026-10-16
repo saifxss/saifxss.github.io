@@ -38,7 +38,9 @@ The normal presentation uses graphite (`#0d1117`), slate surfaces (`#141a23` / `
 
 Project footage supplies the rich color. Typography, fine borders, deliberate spacing, and readable 16px case-study copy establish the visual hierarchy. Mobile uses a visible native project selector and large primary actions. All seven cases have shareable static URLs, such as `/projects/the-amazing-saniboy/#work`. Reload, back/forward, keyboard selection, and copy links preserve the chosen project. Case content is rendered before JavaScript, and the no-script view exposes the remaining projects.
 
-The homepage shows concise project summaries, role highlights, and the core toolkit. Native disclosure controls expose detailed role responsibilities and the full skills list. Project selection on the overview uses `/?project=project-slug#work`; the full case-study link opens a focused page with the challenge, contribution, and outcome. Case pages do not repeat the homepage hero, experience, and toolkit. Arcade content follows the same hierarchy, with all details still available on the machine.
+Project order in `data/portfolio.json` sets the lead project everywhere: Maleficus is first in the homepage feature, normal project browser, and arcade. The homepage exposes contribution highlights alongside footage, with role details and the full skills list behind native disclosure controls. Overview selection uses `/?project=project-slug#work`.
+
+Full case studies open directly with the project, challenge, contribution, and outcome. The project chooser follows the story; navigation to another case loads its static page and matching metadata. The return link restores the same project on the overview. Global navigation consistently returns to the portfolio sections. Case pages do not repeat the homepage hero, experience, and toolkit. Arcade content follows the same project order, with all details available on the machine.
 
 ## Arcade controls and performance
 

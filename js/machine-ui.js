@@ -9,7 +9,7 @@ const names = ['Profile', 'Work', 'Experience', 'Toolkit', 'Contact'];
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
 const simpleRequested = new URLSearchParams(location.search).has('no3d');
 const profileData = data.profile;
-let scene = null, current = 'about', project = Math.max(0, data.projects.findIndex(p => p.slug === 'the-amazing-saniboy')), entered = false;
+let scene = null, current = 'about', project = 0, entered = false;
 let handledURL = '';
 const esc = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 const list = items => (items || []).map(item => `<li>${esc(item)}</li>`).join('');
