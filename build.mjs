@@ -16,10 +16,9 @@ for (const [index, project] of data.projects.entries()) {
   const directory = `projects/${project.slug}`; mkdirSync(directory, { recursive: true });
   writeFileSync(`${directory}/index.html`, renderClassic(data, index, true));
 }
-const arcadeData = { ...data, profile: { ...data.profile, resume: `${data.profile.resume}?v=${hash(data.profile.resume)}` } };
 const arcade = readFileSync('templates/arcade.html', 'utf8')
   .replace('%%CSS%%', hash('css/machine.css')).replace('%%UI%%', hash('js/machine-ui.js'))
-  .replace('%%SCENE%%', hash('js/machine-scene.js')).replace('%%DATA%%', safeJSON(arcadeData));
+  .replace('%%SCENE%%', hash('js/machine-scene.js')).replace('%%DATA%%', safeJSON(data));
 if (/%%[A-Z]+%%/.test(arcade)) throw new Error('Unfilled arcade template marker');
 writeFileSync('arcade.html', arcade); writeFileSync('preview.html', arcade);
 const urls = ['/', '/arcade.html', ...data.projects.map(p => `/projects/${p.slug}/`)];

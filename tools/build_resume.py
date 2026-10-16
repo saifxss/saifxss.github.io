@@ -64,5 +64,5 @@ def footer(canvas, doc):
 
 doc = SimpleDocTemplate(str(output), pagesize=A4, leftMargin=38, rightMargin=38, topMargin=30, bottomMargin=36, title='Saif Chamakhi - Unity Developer', author='Saif Chamakhi', pageCompression=1)
 doc.build(story, onFirstPage=footer, onLaterPages=footer)
-shutil.copyfile(output, ROOT / p['resume'])
+shutil.copyfile(output, ROOT / 'assets/Saif_Chamakhi_Resume.pdf')
 print(output)

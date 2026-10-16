@@ -23,14 +23,15 @@ Set `PORT` to use another local port. GitHub Pages publishes the committed stati
 - `css/classic.css` and `js/experience.js` provide the normal presentation, mobile menu, media controls, project history, and copy links.
 - `templates/arcade.html`, `css/machine.css`, and `js/machine-ui.js` build the accessible HTML screen and physical control board.
 - `js/machine-scene.js` provides the procedural Three.js cabinet, room, rotation, projection, and rendering lifecycle. Vendor modules are pinned to r185.
-- `tools/build_resume.py` creates the public, text-selectable résumé from the same content using Python and ReportLab. Run `python tools/build_resume.py` after changing résumé content. It writes the application copy to `output/pdf/` and the identical website download to `assets/`.
+- `profile.resume` in `data/portfolio.json` is the Google Drive résumé URL used by every résumé button.
+- `tools/build_resume.py` optionally generates a local, text-selectable résumé using Python and ReportLab. It writes to `output/pdf/` and `assets/`; it does not modify the linked Google Drive document.
 - `index.html`, `arcade.html`, `projects/*/index.html`, `classic.html`, `preview.html`, and `sitemap.xml` are generated. Do not edit these outputs directly.
 - `classic.html` preserves older normal-version links; `preview.html` preserves the arcade preview. Both use production canonical URLs and are excluded from indexing.
 - `bundle/`, `prerender.mjs`, `build-experiences.mjs`, and `js/arcade3d.js` are retained historical sources. The active build no longer imports them or parses the original design export.
 
 Only The Amazing SaniBoy and Albert's Ark Idle are labelled publicly released, as confirmed by the portfolio owner. Other statuses distinguish completed work awaiting release, playtested prototypes, and unreleased studio projects. The two selected public releases are separate from the 20+ legacy titles restored and republished at StolenPad. Download/rating milestones describe SaniBoy, rather than claiming sole credit for a team's commercial outcome. The latest résumé documents game development since 2019 and professional studio work since 2023.
 
-After a résumé edit, generate the PDF before running `npm run build`. Download links include the PDF content hash so returning visitors receive the current version.
+To change the résumé destination, update `profile.resume` and run `npm run build`. Both presentations open the same external link in a new tab.
 
 ## Design direction
 
@@ -63,6 +64,6 @@ npm test
 npm run test:polish
 ```
 
-The suites check normal and arcade layouts from 320 to 2560px, the confirmed release counts, all seven case studies, static project routes/reload/history, keyboard and mobile menus, project selectors, résumé delivery, clipboard sharing, native board target sizes, mouse/touch rotation, orientation changes, WebGL context loss, Save-Data, missing modules, and no-JavaScript content. Screenshots go into ignored `test-results/`; uncaught browser errors fail the suites.
+The suites check normal and arcade layouts from 320 to 2560px, the confirmed release counts, all seven case studies, static project routes/reload/history, keyboard and mobile menus, project selectors, résumé link targets, clipboard sharing, native board target sizes, mouse/touch rotation, orientation changes, WebGL context loss, Save-Data, missing modules, and no-JavaScript content. Screenshots go into ignored `test-results/`; uncaught browser errors fail the suites.
 
 Optional environment variables: `PORTFOLIO_URL`, `PLAYWRIGHT_BROWSER_PATH`, and `PLAYWRIGHT_MODULE_PATH`. Device checks use browser emulation; physical iOS/Android GPU performance remains a device-specific check.
