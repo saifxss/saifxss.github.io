@@ -1,60 +1,52 @@
 # Saif Chamakhi's portfolio
 
-Two complete presentations of the same portfolio:
-
-- **Normal portfolio** (`index.html`, the default homepage): a refined version of the main-branch design, with a focused introduction, featured project, résumé shortcut, mobile navigation, and case-study browser.
-- **3D arcade** (`arcade.html`): an interactive Three.js cabinet. Profile, seven projects, experience, toolkit, contact information, education, languages, and résumé access live inside its screen. A visible link switches between versions.
+A static portfolio for Unity gameplay and UI engineering, with an optional interactive 3D arcade.
 
 ## Develop
 
-Requires Node.js 20 or newer. Building and serving need no dependencies.
+Node.js 20 or newer is enough to build and serve the website:
 
 ```sh
 npm run build
 npm run serve
-# Normal: http://localhost:8000/
-# Arcade: http://localhost:8000/arcade.html
+# Default portfolio: http://localhost:8000/
+# 3D arcade: http://localhost:8000/arcade.html
 ```
 
-GitHub Pages publishes the committed static files on `main`. Building generates local files; publish a reviewed build by pushing it to `main`.
+Set `PORT` to use another local port. GitHub Pages publishes the committed static files from `main`; building alone does not publish.
 
-## Source and generated files
+## Content and source
 
-- `bundle/index.bundle.html`: original design export and portfolio content.
-- `build.mjs`, `prerender.mjs`: asserted export transforms, media resolution, and static rendering.
-- `build-experiences.mjs`: derives both presentations from the shared content.
-- `templates/arcade.html`, `css/machine.css`: arcade shell and responsive screen layouts.
-- `js/machine-ui.js`: sections, projects, accessible DOM controls, video playback, and fallback.
-- `js/machine-scene.js`: cabinet geometry, materials, camera, screen projection, physical controls, and GPU lifecycle.
-- `css/classic.css`, `js/experience.js`: normal-version presentation and controls.
-- `index.html`, `arcade.html`, `preview.html`, `classic.html`: generated output committed for GitHub Pages. Do not hand-edit these files. `classic.html` preserves old normal-version links; `preview.html` duplicates the arcade. Both compatibility copies are excluded from indexing and use the production canonical URLs.
-- `js/arcade3d.js`: preserved earlier prototype; neither current presentation imports it.
-- `serve.mjs`: local HTTP server with video range-request support.
-- `legacy/`: archived previous site, excluded from indexing.
+- `data/portfolio.json` is the single source of truth for profile details, projects, release status, experience, tools, skills, education, and languages.
+- `render-portfolio.mjs` renders the semantic normal portfolio and project case studies.
+- `build.mjs` validates content and local media, generates both presentations, seven project URLs, and the sitemap.
+- `css/classic.css` and `js/experience.js` provide the normal presentation, mobile menu, media controls, project history, and copy links.
+- `templates/arcade.html`, `css/machine.css`, and `js/machine-ui.js` build the accessible HTML screen and physical control board.
+- `js/machine-scene.js` provides the procedural Three.js cabinet, room, rotation, projection, and rendering lifecycle. Vendor modules are pinned to r185.
+- `tools/build_resume.py` creates the public, text-selectable résumé from the same content using Python and ReportLab. Run `python tools/build_resume.py` after changing résumé content.
+- `index.html`, `arcade.html`, `projects/*/index.html`, `classic.html`, `preview.html`, and `sitemap.xml` are generated. Do not edit these outputs directly.
+- `classic.html` preserves older normal-version links; `preview.html` preserves the arcade preview. Both use production canonical URLs and are excluded from indexing.
+- `bundle/`, `prerender.mjs`, `build-experiences.mjs`, and `js/arcade3d.js` are retained historical sources. The active build no longer imports them or parses the original design export.
 
-Run the build after editing source. CSS and JavaScript entry points use content hashes. No React or client-side template runtime is shipped. Fonts are optional, with system fallbacks.
+Only The Amazing SaniBoy and Albert's Ark Idle are labelled publicly released, as confirmed by the portfolio owner. The other five selected projects are labelled unreleased. Download/rating milestones describe SaniBoy, rather than claiming sole credit for a team's commercial outcome. No unsupported professional-years or shipped-title total is used.
 
-## The arcade experience
+## Design direction
 
-Click or tap the screen to browse selected work. A colourful 90s arcade room surrounds a bevelled cabinet with cyan sides, pink trim, a striped marquee, and a yellow control deck. The camera frames both the CRT and the whole control board; the screen adapts to a readable portrait shape on phones. Both surfaces contain real HTML projected onto the cabinet, so text, links, scrolling, video, and keyboard navigation work normally.
+The normal presentation uses graphite (`#0d1117`), slate surfaces (`#141a23` / `#1b2430`), warm ivory text (`#f2f0e9`), and amber actions (`#edbd72`). Ice blue (`#9fc4da`) supports technical labels; green (`#a4c9aa`) accompanies written release status. Information is never communicated by color alone.
 
-Drag the cabinet or room with a mouse or one finger to rotate through 360°. The rotation toolbar provides keyboard-accessible 45° steps and a reset view. A drag does not activate the screen. Screen and board content hide behind the cabinet at rear angles, and opening a portfolio section returns the cabinet to the front for reading. Rotation renders only while the view changes and honours reduced motion.
+Project footage supplies the rich color. Typography, fine borders, deliberate spacing, and readable 16px case-study copy establish the visual hierarchy. Mobile uses a visible native project selector and large primary actions. All seven cases have shareable static URLs, such as `/projects/the-amazing-saniboy/#work`. Reload, back/forward, keyboard selection, and copy links preserve the chosen project. Case content is rendered before JavaScript, and the no-script view exposes the remaining projects.
 
-The joystick and arrow buttons browse all seven projects. Six labelled control-board buttons open Profile, Work, Experience, Toolkit, Contact, and the résumé. These native buttons support mouse, touch, keyboard focus, and activation. The board stays visible while screen content scrolls, and a footer hint indicates additional content below. On short landscape screens, the board provides section navigation to preserve reading space. On-screen project selectors support Left/Right and Home/End. Escape or **Cabinet** returns to the overview. Direct section links work, for example `/arcade.html#work` or `/arcade.html#contact`. `/arcade.html?no3d` redirects to the normal version.
+## Arcade controls and performance
 
-Reduced motion removes camera animation and automatic video playback. Save-Data skips the 3D download. Unsupported WebGL2, a failed scene module, or WebGL context loss produces a static cabinet that retains all screen content. The normal version also works without JavaScript and exposes all project case notes.
+Drag the room or cabinet to rotate 360°, or use the keyboard-accessible rotation buttons. Reset restores the front angle. Opening a section returns the cabinet to a readable front view; a drag cannot activate the screen. The rear hides the projected HTML rather than showing it through the cabinet.
 
-The renderer runs on demand, stopping when the camera settles. Device pixel ratio is capped at 1.25 for touch and 1.5 for desktop, with a 2.6-million-pixel ceiling on the WebGL buffer and a lower resolution after sustained slow frames. Text and controls remain native-resolution HTML. Section changes do not resize the WebGL buffer. Touch transitions are capped at 30fps. Background tabs pause rendering and video. Videos render directly in the screen's HTML instead of using a second decoder for a texture. Scene teardown releases geometry, materials, textures, event listeners, and animation callbacks.
+The joystick browses projects. Labelled buttons open Profile, Work, Experience, Toolkit, Contact, and the résumé. Screen content scrolls independently while the board remains accessible. Project links use `/arcade.html#work/project-slug` and preserve query parameters. Mobile uses a native project selector; short landscape screens reserve space for reading.
 
-The cabinet uses procedural geometry, canvas artwork, and local Three.js modules; no external model or CDN is required. Vendor Three.js files are pinned together at r185.
+The renderer runs on demand. WebGL DPR is capped at 1.25 on touch and 1.5 on desktop, with a 2.6-million-pixel buffer ceiling and adaptive quality. Text is native-resolution HTML. Background tabs pause rendering and video; reduced motion stops automatic media playback and camera animation. Save-Data skips 3D. Missing WebGL, a scene-module failure, or context loss retains a static, usable HTML screen and board. Neither the normal homepage nor its case pages load Three.js.
 
-## Project media
+## Verify
 
-`gifs/` takes precedence over `images/`. Matching ignores extensions, punctuation, and case; ambiguous matches fail. MP4/WebM files use optional `.poster.jpg` frames, other files render as stills, and missing footage uses an NDA placeholder. Files over 2 MB produce build warnings. Original GIF captures are archived under `legacy/gifs/`; see `gifs/README.md` for encoding instructions.
-
-## Verification
-
-Browser checks require Playwright and Chromium:
+Browser checks need Playwright and Chromium:
 
 ```sh
 npm install
@@ -65,8 +57,6 @@ npm test
 npm run test:polish
 ```
 
-The suite checks both versions at 320–2560px, portrait and short landscape screens, all seven project case notes, native control-board targets, keyboard focus, high-DPI touch, live orientation changes, reduced motion, context loss, Save-Data, unavailable WebGL, module failure, and JavaScript-disabled normal content. It verifies that the board remains below the screen, every control stays inside the viewport, and control targets meet a 44px size with a 1px projection tolerance. Screenshots go to ignored `test-results/`; uncaught browser errors fail the suite.
+The suites check normal and arcade layouts from 320 to 2560px, the confirmed release counts, all seven case studies, static project routes/reload/history, keyboard and mobile menus, project selectors, résumé delivery, clipboard sharing, native board target sizes, mouse/touch rotation, orientation changes, WebGL context loss, Save-Data, missing modules, and no-JavaScript content. Screenshots go into ignored `test-results/`; uncaught browser errors fail the suites.
 
-The polish checks exercise mouse and touch rotation, back-face hiding, reset, keyboard rotation, automatic front framing, mobile menus, and normal-project selection across narrow and desktop layouts.
-
-Optional environment variables: `PORTFOLIO_URL`, `PLAYWRIGHT_BROWSER_PATH`, and `PLAYWRIGHT_MODULE_PATH`. Mobile checks use browser emulation; physical iOS/Android GPU performance requires a device check.
+Optional environment variables: `PORTFOLIO_URL`, `PLAYWRIGHT_BROWSER_PATH`, and `PLAYWRIGHT_MODULE_PATH`. Device checks use browser emulation; physical iOS/Android GPU performance remains a device-specific check.

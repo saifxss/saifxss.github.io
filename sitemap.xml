@@ -1,15 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://saifxss.github.io/</loc>
-    <lastmod>2026-10-05</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://saifxss.github.io/arcade.html</loc>
-    <lastmod>2026-10-05</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
+  <url><loc>https://saifxss.github.io/</loc></url>
+  <url><loc>https://saifxss.github.io/arcade.html</loc></url>
+  <url><loc>https://saifxss.github.io/projects/maleficus/</loc></url>
+  <url><loc>https://saifxss.github.io/projects/tikto-king/</loc></url>
+  <url><loc>https://saifxss.github.io/projects/the-amazing-saniboy/</loc></url>
+  <url><loc>https://saifxss.github.io/projects/draft-fever-bowl/</loc></url>
+  <url><loc>https://saifxss.github.io/projects/the-plooshies/</loc></url>
+  <url><loc>https://saifxss.github.io/projects/shells-and-tails/</loc></url>
+  <url><loc>https://saifxss.github.io/projects/alberts-ark-idle/</loc></url>
 </urlset>

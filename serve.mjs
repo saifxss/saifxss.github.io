@@ -3,7 +3,8 @@ import { createReadStream, statSync } from 'node:fs';
 import { resolve, extname, sep } from 'node:path';
 
 const root = process.cwd();
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.mp4': 'video/mp4' };
+const port = Number(process.env.PORT || 8000);
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.mp4': 'video/mp4', '.pdf': 'application/pdf', '.woff2': 'font/woff2' };
 createServer((req, res) => {
   let path;
   try { path = resolve(root, '.' + decodeURIComponent(new URL(req.url, 'http://localhost').pathname)); }
@@ -26,4 +27,4 @@ createServer((req, res) => {
       createReadStream(path).pipe(res);
     }
   } catch { res.writeHead(404).end('Not found'); }
-}).listen(8000, '127.0.0.1', () => console.log('Portfolio: http://localhost:8000'));
+}).listen(port, '127.0.0.1', () => console.log(`Portfolio: http://localhost:${port}`));
