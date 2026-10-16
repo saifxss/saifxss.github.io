@@ -6,16 +6,18 @@
     "phone": "+216 52 099 160",
     "location": "Tunis, Tunisia",
     "availability": "Full-time or contract · Remote on EU/GMT hours",
-    "intro": "I build gameplay systems, UI architecture, and multiplayer features in Unity for PC, mobile, and WebGL. My work spans commercial releases, studio frameworks, and playable prototypes.",
+    "intro": "I build Unity gameplay systems, scalable UI, and multiplayer features for PC, mobile, and WebGL. Building games since 2019; working in professional studios since 2023.",
     "specialty": "Gameplay systems · UI architecture · Multiplayer",
     "github": "https://github.com/saifxss",
     "linkedin": "https://www.linkedin.com/in/seif-chamakhi/",
-    "resume": "assets/Saif_Chamakhi_Resume.pdf"
+    "resume": "assets/Saif_Chamakhi_Resume.pdf",
+    "buildingSince": 2019,
+    "professionalSince": 2023
   },
   "metrics": [
     {
       "value": "2",
-      "label": "Released titles"
+      "label": "Selected titles released"
     },
     {
       "value": "4",
@@ -53,7 +55,7 @@
         "Event-driven"
       ],
       "status": "unreleased",
-      "statusLabel": "Unreleased · Complete",
+      "statusLabel": "Completed · Awaiting release",
       "role": "Unity Developer · Gameplay architecture and UI",
       "studio": "BNJMO",
       "summary": "Reworked the multiplayer arena game's architecture and built its state-driven player onboarding and spell selection.",
@@ -89,7 +91,7 @@
         "Minimax AI"
       ],
       "status": "unreleased",
-      "statusLabel": "Unreleased · Event-playtested",
+      "statusLabel": "Playtested prototype",
       "role": "Unity Developer · Game AI and board systems",
       "studio": "BNJMO",
       "summary": "Built Ultimate Tic-Tac-Toe AI and reusable board and turn systems for a platform that later added a quiz game.",
@@ -167,7 +169,7 @@
         "UI systems"
       ],
       "status": "unreleased",
-      "statusLabel": "Unreleased",
+      "statusLabel": "Unreleased · Studio project",
       "role": "Game Developer · UI ownership",
       "studio": "Blue Gravity Studios",
       "summary": "Delivered the football management game's UI layer in a production team of more than 20 people.",
@@ -204,7 +206,7 @@
         "WebGL"
       ],
       "status": "unreleased",
-      "statusLabel": "Unreleased",
+      "statusLabel": "Unreleased · Demo",
       "role": "Game Developer · Multiplayer and WebGL",
       "studio": "Blue Gravity Studios",
       "summary": "Integrated Photon Fusion multiplayer and improved UI performance and gameplay stability for a WebGL party game demo.",
@@ -241,7 +243,7 @@
         "Local multiplayer"
       ],
       "status": "unreleased",
-      "statusLabel": "Unreleased",
+      "statusLabel": "Unreleased · Local multiplayer",
       "role": "Gameplay Developer · Local multiplayer",
       "studio": "",
       "summary": "Built four rule-set mini-games and connected split-screen cameras and local input for four players.",
@@ -298,22 +300,24 @@
     {
       "studio": "StolenPad",
       "role": "Unity Developer",
-      "dates": "2026 – Present",
+      "dates": "Feb 2026 – Present",
       "bullets": [
-        "Built 5+ hypercasual prototypes from concept to playable build under rapid iteration cycles, owning gameplay systems, UI, and release readiness solo on most builds. Several are now being pitched to publishers.",
-        "Restored and republished a back catalogue of 20+ legacy titles, fixing breaking issues and meeting current store requirements to make the catalogue viable for publisher acquisition.",
-        "Cut build sizes for web and mobile using texture compression, profiling-led code optimisation, and Addressables, meeting platform limits without cutting content."
-      ]
+        "Built 5+ hypercasual prototypes, owning gameplay systems, UI, and release readiness solo on most builds. Several are being pitched to publishers.",
+        "Upgraded and republished 20+ legacy titles to Unity 6, resolving compatibility issues and Google Play requirements including 16 KB page-size support.",
+        "Reduced web and mobile build sizes using texture and mesh compression, profiling-led optimisation, and Addressables."
+      ],
+      "highlight": "Built 5+ hypercasual prototypes and upgraded 20+ legacy titles to Unity 6."
     },
     {
       "studio": "BNJMO",
       "role": "Unity Developer",
       "dates": "Feb 2025 – Feb 2026",
       "bullets": [
-        "Authored the studio's shared framework covering the audio system, announcement system, event-driven layer, and UI transition utilities.",
-        "Distributed it via Git submodules and reused it across Tikto King, Maleficus, multiple client projects, and the studio website, removing repeated setup work on every new project.",
-        "Delivered gameplay architecture, AI, and scalable UI on Maleficus, Tikto King, and Super One."
-      ]
+        "Authored the studio's shared audio, announcement, event, and UI-transition framework; distributed it through Git submodules across games and client projects.",
+        "Built Maleficus gameplay/UI architecture and state-driven onboarding; implemented Minimax/Alpha-Beta AI and shared board/turn systems for Tikto King.",
+        "Built ScriptableObject-driven shop, profile, quest, and settings interfaces for Super One, with modular components for adding content."
+      ],
+      "highlight": "Built shared studio frameworks, gameplay architecture, and reusable UI."
     },
     {
       "studio": "Blue Gravity Studios",
@@ -323,7 +327,8 @@
         "Owned the UI layer on Draft Fever Bowl within a 20+ person Steam production, including a responsive popup framework reused team-wide.",
         "Integrated Photon Fusion multiplayer and optimised WebGL performance on The Plooshies.",
         "Built progression systems and early UI on Albert's Ark Idle through to Steam release."
-      ]
+      ],
+      "highlight": "Delivered UI, multiplayer, and progression systems across three studio projects."
     },
     {
       "studio": "READY TO TEK",
@@ -332,14 +337,15 @@
       "bullets": [
         "Owned UI, gameplay mechanics, and backend integration on The Amazing SaniBoy through its Google Play release. The game reached 100,000+ downloads and a 4.7-star rating.",
         "Implemented the in-game store data layer and integrated Google Play services, ads, and leaderboards."
-      ]
+      ],
+      "highlight": "Owned UI, gameplay, and integrations through SaniBoy's Google Play release."
     }
   ],
   "tools": [
     {
       "category": "editor-tool",
-      "title": "Texture compression tool",
-      "description": "Reduces texture sizes across an entire project, cutting build size for web and mobile releases without manual per-asset work."
+      "title": "Texture & mesh compression tools",
+      "description": "Editor tools that reduce texture and mesh sizes across a project, helping control web and mobile build sizes without manual per-asset work."
     },
     {
       "category": "ui-framework",
@@ -354,8 +360,7 @@
         "Unity 3D / 2D",
         "Unity 6",
         "C#",
-        ".NET",
-        "C++"
+        ".NET"
       ]
     },
     {
@@ -401,7 +406,7 @@
       "title": "Performance & Tooling",
       "items": [
         "Unity Profiler",
-        "Texture compression",
+        "Texture & mesh compression",
         "Addressables",
         "Build size & memory",
         "Editor tooling"
@@ -411,13 +416,13 @@
       "title": "Platforms & Integration",
       "items": [
         "Android",
-        "iOS",
         "Google Play",
         "Steam",
         "WebGL",
         "REST APIs",
         "JSON",
-        "Ad networks"
+        "Ad networks",
+        "Leaderboards"
       ]
     },
     {
@@ -456,5 +461,63 @@
       "level": "Fluent"
     }
   ],
-  "earlierWork": "Earlier titles include Slash And Dash (BPM-driven obstacle generation and background VFX) and DaQueen (ragdoll controller and Photon multiplayer), alongside a back catalogue of 20+ legacy titles restored and republished to current store requirements."
+  "earlierWork": "Earlier titles include Slash And Dash (BPM-driven obstacle generation and background VFX) and DaQueen (ragdoll controller and Photon multiplayer), alongside a back catalogue of 20+ legacy titles restored and republished to current store requirements.",
+  "resume": {
+    "summary": "Unity developer building games since 2019 and working in professional studios since 2023. Specialises in gameplay systems, reusable UI architecture, and multiplayer features for PC, Android, and WebGL.",
+    "skills": [
+      {
+        "label": "Gameplay & architecture",
+        "text": "Unity, C#, .NET, event-driven systems, ScriptableObjects, state machines, Minimax / Alpha-Beta"
+      },
+      {
+        "label": "UI & multiplayer",
+        "text": "Unity UI / Canvas, reusable interfaces, Photon Fusion, Photon Quantum, client/server sync"
+      },
+      {
+        "label": "Performance & delivery",
+        "text": "Unity Profiler, Addressables, texture/mesh compression, Android, Steam, WebGL, Git, REST APIs"
+      }
+    ],
+    "experience": [
+      {
+        "studio": "StolenPad",
+        "role": "Unity Developer",
+        "dates": "Feb 2026 – Present",
+        "bullets": [
+          "Built 5+ hypercasual prototypes, owning gameplay systems, UI, and release readiness solo on most builds. Several are being pitched to publishers.",
+          "Upgraded and republished 20+ legacy titles to Unity 6, resolving compatibility issues and Google Play requirements including 16 KB page-size support.",
+          "Reduced web and mobile build sizes using texture and mesh compression, profiling-led optimisation, and Addressables."
+        ]
+      },
+      {
+        "studio": "BNJMO",
+        "role": "Unity Developer",
+        "dates": "Feb 2025 – Feb 2026",
+        "bullets": [
+          "Authored the studio's shared audio, announcement, event, and UI-transition framework; distributed it through Git submodules across games and client projects.",
+          "Refactored Maleficus gameplay/UI boundaries and built state-driven onboarding and spell selection. Project complete, awaiting publisher release.",
+          "Built Tikto King Minimax/Alpha-Beta AI and shared board/turn systems; delivered ScriptableObject-driven shop, profile, quest, and settings UI for Super One."
+        ]
+      },
+      {
+        "studio": "Blue Gravity Studios",
+        "role": "Game Developer",
+        "dates": "Nov 2023 – Sep 2024",
+        "bullets": [
+          "Owned Draft Fever Bowl's UI layer and reusable popup framework within a 20+ person production.",
+          "Integrated Photon Fusion and WebGL UI optimisation on The Plooshies; built Albert's Ark Idle progression and early UI, supporting its Steam release."
+        ]
+      },
+      {
+        "studio": "READY TO TEK",
+        "role": "Game Developer",
+        "dates": "Feb 2023 – Nov 2023",
+        "bullets": [
+          "Owned UI, gameplay, and backend integration through The Amazing SaniBoy's Google Play release. The game reached 100,000+ downloads and a 4.7-star rating.",
+          "Implemented store data, Google Play services, ads, and leaderboards; built loading UI and supported level design and launch bug fixes."
+        ]
+      }
+    ],
+    "tools": "Texture and mesh compression editor tools; adaptive UI framework for varying content, button counts, and resolutions."
+  }
 }

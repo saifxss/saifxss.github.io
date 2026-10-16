@@ -17,24 +17,26 @@ Set `PORT` to use another local port. GitHub Pages publishes the committed stati
 
 ## Content and source
 
-- `data/portfolio.json` is the single source of truth for profile details, projects, release status, experience, tools, skills, education, and languages.
+- `data/portfolio.json` is the single source of truth for profile details, projects, release status, experience, tools, skills, education, languages, and the curated one-page résumé (`resume`).
 - `render-portfolio.mjs` renders the semantic normal portfolio and project case studies.
 - `build.mjs` validates content and local media, generates both presentations, seven project URLs, and the sitemap.
 - `css/classic.css` and `js/experience.js` provide the normal presentation, mobile menu, media controls, project history, and copy links.
 - `templates/arcade.html`, `css/machine.css`, and `js/machine-ui.js` build the accessible HTML screen and physical control board.
 - `js/machine-scene.js` provides the procedural Three.js cabinet, room, rotation, projection, and rendering lifecycle. Vendor modules are pinned to r185.
-- `tools/build_resume.py` creates the public, text-selectable résumé from the same content using Python and ReportLab. Run `python tools/build_resume.py` after changing résumé content.
+- `tools/build_resume.py` creates the public, text-selectable résumé from the same content using Python and ReportLab. Run `python tools/build_resume.py` after changing résumé content. It writes the application copy to `output/pdf/` and the identical website download to `assets/`.
 - `index.html`, `arcade.html`, `projects/*/index.html`, `classic.html`, `preview.html`, and `sitemap.xml` are generated. Do not edit these outputs directly.
 - `classic.html` preserves older normal-version links; `preview.html` preserves the arcade preview. Both use production canonical URLs and are excluded from indexing.
 - `bundle/`, `prerender.mjs`, `build-experiences.mjs`, and `js/arcade3d.js` are retained historical sources. The active build no longer imports them or parses the original design export.
 
-Only The Amazing SaniBoy and Albert's Ark Idle are labelled publicly released, as confirmed by the portfolio owner. The other five selected projects are labelled unreleased. Download/rating milestones describe SaniBoy, rather than claiming sole credit for a team's commercial outcome. No unsupported professional-years or shipped-title total is used.
+Only The Amazing SaniBoy and Albert's Ark Idle are labelled publicly released, as confirmed by the portfolio owner. Other statuses distinguish completed work awaiting release, playtested prototypes, and unreleased studio projects. The two selected public releases are separate from the 20+ legacy titles restored and republished at StolenPad. Download/rating milestones describe SaniBoy, rather than claiming sole credit for a team's commercial outcome. The latest résumé documents game development since 2019 and professional studio work since 2023.
 
 ## Design direction
 
 The normal presentation uses graphite (`#0d1117`), slate surfaces (`#141a23` / `#1b2430`), warm ivory text (`#f2f0e9`), and amber actions (`#edbd72`). Ice blue (`#9fc4da`) supports technical labels; green (`#a4c9aa`) accompanies written release status. Information is never communicated by color alone.
 
 Project footage supplies the rich color. Typography, fine borders, deliberate spacing, and readable 16px case-study copy establish the visual hierarchy. Mobile uses a visible native project selector and large primary actions. All seven cases have shareable static URLs, such as `/projects/the-amazing-saniboy/#work`. Reload, back/forward, keyboard selection, and copy links preserve the chosen project. Case content is rendered before JavaScript, and the no-script view exposes the remaining projects.
+
+The homepage shows concise project summaries, role highlights, and the core toolkit. Native disclosure controls expose detailed role responsibilities and the full skills list. Project selection on the overview uses `/?project=project-slug#work`; the full case-study link opens a focused page with the challenge, contribution, and outcome. Case pages do not repeat the homepage hero, experience, and toolkit. Arcade content follows the same hierarchy, with all details still available on the machine.
 
 ## Arcade controls and performance
 

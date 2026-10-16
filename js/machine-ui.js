@@ -38,23 +38,23 @@ function work() {
         <div class="project-meta">${status}<span>${esc(p.platform)} · ${esc(p.year)} · ${String(project + 1).padStart(2, '0')} / ${String(data.projects.length).padStart(2, '0')}</span></div>
         <p class="project-summary">${esc(p.summary)}</p>
         <div class="project-body"><div><div class="project-media">${media}</div><div class="tag-row">${(p.tech || []).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div></div>
-          <div class="project-notes"><h3>My contribution</h3><p class="contribution-role">${esc(p.role)}${p.studio ? `<span>${esc(p.studio)}</span>` : ''}</p><ul>${list(p.bullets)}</ul></div>
+          <div class="project-notes"><h3>My contribution</h3><p class="contribution-role">${esc(p.role)}${p.studio ? `<span>${esc(p.studio)}</span>` : ''}</p><ul>${list(p.approach)}</ul></div>
         </div>
-        <div class="case-proof">${p.challenge ? `<section><h3>Challenge</h3><p>${esc(p.challenge)}</p></section>` : ''}${p.approach?.length ? `<section><h3>Approach</h3><ul>${list(p.approach)}</ul></section>` : ''}${p.outcome ? `<section><h3>Outcome</h3><p>${esc(p.outcome)}</p></section>` : ''}</div>
+        <div class="case-proof">${p.outcome ? `<section><h3>Outcome</h3><p>${esc(p.outcome)}</p></section>` : ''}</div><details class="screen-disclosure"><summary>The technical challenge</summary><p>${esc(p.challenge)}</p></details>
         <div class="project-actions">${external(p.link, p.evidenceLabel || p.linkLabel || 'Explore project')}<button type="button" class="screen-button" data-copy-project>Copy project link</button><span class="copy-feedback" data-copy-feedback role="status" aria-live="polite"></span></div>
-        ${data.earlierWork ? `<div class="earlier-work"><h3>Earlier work</h3><p>${esc(data.earlierWork)}</p></div>` : ''}
+        ${data.earlierWork ? `<details class="screen-disclosure"><summary>Earlier projects & legacy titles</summary><p>${esc(data.earlierWork)}</p></details>` : ''}
       </article>
     </div>`;
 }
 
 function experience() {
-  return `<p class="section-kicker">03 / Experience</p><h2>Where I've built.</h2>` + (data.experience || []).map(role => `<article class="role"><div><h3>${esc(role.studio)}</h3><div class="role-label">${esc(role.role)}</div><div class="role-date">${esc(role.dates)}</div></div><ul>${list(role.bullets)}</ul></article>`).join('');
+  return `<p class="section-kicker">03 / Experience</p><h2>Where I've built.</h2>` + (data.experience || []).map(role => `<article class="role"><div><h3>${esc(role.studio)}</h3><div class="role-label">${esc(role.role)}</div><div class="role-date">${esc(role.dates)}</div></div><div><p>${esc(role.highlight)}</p><details class="screen-disclosure"><summary>More about this role</summary><ul>${list(role.bullets)}</ul></details></div></article>`).join('');
 }
 
 function toolkit() {
   const tools = (data.tools || []).map(tool => `<article class="tool"><p class="section-kicker">${esc(tool.category)}</p><h3>${esc(tool.title)}</h3><p>${esc(tool.description)}</p></article>`).join('');
   const skills = (data.skills || []).map(skill => `<article class="skill"><h3>${esc(skill.title)}</h3><div class="tag-row">${(skill.items || []).map(item => `<span class="tag">${esc(item)}</span>`).join('')}</div></article>`).join('');
-  return `<p class="section-kicker">04 / Toolkit</p><h2>Beyond the game.</h2><div class="tools-grid">${tools}</div><h3>What I bring</h3><div class="skills-grid">${skills}</div>`;
+  return `<p class="section-kicker">04 / Toolkit</p><h2>Beyond the game.</h2><div class="tools-grid">${tools}</div><div class="core-toolkit">${data.resume.skills.map(skill => `<section><h3>${esc(skill.label)}</h3><p>${esc(skill.text)}</p></section>`).join('')}</div><details class="screen-disclosure"><summary>Full technical toolkit</summary><div class="skills-grid">${skills}</div></details>`;
 }
 
 function contact() {
@@ -75,6 +75,7 @@ function updateScrollHint() {
   document.getElementById('screen-scroll-hint').textContent = more ? 'SCROLL FOR MORE ↓' : 'READY PLAYER ONE';
 }
 content.addEventListener('scroll', updateScrollHint, { passive: true });
+content.addEventListener('toggle', () => requestAnimationFrame(updateScrollHint), true);
 new ResizeObserver(updateScrollHint).observe(content);
 
 function render(section = current, { focus = false } = {}) {

@@ -4,6 +4,7 @@ const tabs = [...document.querySelectorAll('[data-project]')];
 const select = document.getElementById('project-select');
 const status = document.getElementById('selection-status');
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
+const isProjectPage = document.body.dataset.projectPage === 'true';
 let selected = Number(document.body.dataset.selectedProject);
 let onScreen = false;
 function updateMedia() {
@@ -34,9 +35,13 @@ function show(index, { navigate = true } = {}) {
     screen.replaceChildren(document.querySelector(`template[data-case="${selected}"]`).content.cloneNode(true));
     syncSelection(); mountMedia();
   }
-  if (navigate) history.pushState({ project: selected }, '', `/projects/${projects[selected].slug}/#work`);
+  if (navigate) history.pushState({ project: selected }, '', isProjectPage ? `/projects/${projects[selected].slug}/#work` : `/?project=${projects[selected].slug}#work`);
   status.textContent = `${projects[selected].title}, project ${selected + 1} of ${projects.length}`;
   document.title = `${projects[selected].title} | Saif Chamakhi · Unity Developer`;
+  if (isProjectPage) {
+    const canonical = new URL(`/projects/${projects[selected].slug}/`, location.origin).href;
+    document.querySelector('link[rel="canonical"]').href = canonical;
+  }
 }
 tabs.forEach((tab, index) => {
   tab.addEventListener('click', event => {
@@ -56,7 +61,7 @@ document.querySelectorAll('[data-nav]').forEach(button => button.addEventListene
   screen.scrollIntoView({ block: 'start', behavior: motion.matches ? 'instant' : 'smooth' });
 }));
 addEventListener('popstate', () => {
-  const slug = location.pathname.split('/').filter(Boolean)[1];
+  const slug = isProjectPage ? location.pathname.split('/').filter(Boolean)[1] : new URLSearchParams(location.search).get('project');
   const index = projects.findIndex(project => project.slug === slug);
   show(index < 0 ? projects.findIndex(project => project.slug === 'the-amazing-saniboy') : index, { navigate: false });
 });
@@ -87,15 +92,19 @@ toggle.addEventListener('click', event => {
 });
 menu.addEventListener('click', event => {
   const a = event.target.closest('a'); if (!a || !mobile.matches) return;
-  closeMenu(); const target = document.querySelector(a.hash); target.tabIndex = -1; target.focus({ preventScroll: true });
+  closeMenu(); const target = document.querySelector(a.hash); if (target) { target.tabIndex = -1; target.focus({ preventScroll: true }); }
 });
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') { event.preventDefault(); closeMenu(true); } });
 document.addEventListener('click', event => { if (!event.target.closest('.site-nav')) closeMenu(); });
 mobile.addEventListener('change', () => closeMenu());
 const links = [...menu.querySelectorAll('a')];const sections = links.map(a => document.querySelector(a.hash));
 function activeSection() {
-  let active = null;for (const section of sections) if (section.getBoundingClientRect().top <= 160) active = section.id;
+  let active = null;for (const section of sections) if (section && section.getBoundingClientRect().top <= 160) active = section.id;
   links.forEach(a => { if (a.hash === '#' + active) a.setAttribute('aria-current', 'location'); else a.removeAttribute('aria-current'); });
 }
 addEventListener('scroll', activeSection, { passive: true }); activeSection();
 if (document.body.dataset.projectPage && !location.hash) document.getElementById('work').scrollIntoView({ behavior: 'instant' });
+if (!isProjectPage) {
+  const initial = projects.findIndex(project => project.slug === new URLSearchParams(location.search).get('project'));
+  if (initial >= 0) show(initial, { navigate: false });
+}
