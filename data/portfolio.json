@@ -6,18 +6,21 @@
     "phone": "+216 52 099 160",
     "location": "Tunis, Tunisia",
     "availability": "Full-time or contract · Remote on EU/GMT hours",
-    "intro": "I build Unity gameplay systems, scalable UI, and multiplayer features for PC, mobile, and WebGL. Building games since 2019; working in professional studios since 2023.",
+    "intro": "I build mobile hypercasual gameplay, reusable UI systems, and multiplayer features for Android, WebGL, and PC. Professional studio experience since 2023.",
     "specialty": "Gameplay systems · UI architecture · Multiplayer",
     "github": "https://github.com/saifxss",
     "linkedin": "https://www.linkedin.com/in/seif-chamakhi/",
     "resume": "https://drive.google.com/file/d/18RgUWAaUabxcabjLMv4DzMsVOc3KPPCL/view?usp=sharing",
     "buildingSince": 2019,
-    "professionalSince": 2023
+    "professionalSince": 2023,
+    "shippedTitles": 9,
+    "positioning": "Unity developer · 9 shipped titles",
+    "opportunities": "Unity gameplay and UI engineering roles in mobile, hypercasual, and puzzle games. Full-time or contract."
   },
   "metrics": [
     {
-      "value": "2",
-      "label": "Selected titles released"
+      "value": "9",
+      "label": "Shipped titles"
     },
     {
       "value": "4",
@@ -302,11 +305,11 @@
       "role": "Unity Developer",
       "dates": "Feb 2026 – Present",
       "bullets": [
-        "Built 5+ hypercasual prototypes, owning gameplay systems, UI, and release readiness solo on most builds. Several are being pitched to publishers.",
+        "Built 5+ mobile hypercasual prototypes, owning gameplay systems, UI, and release readiness solo on most builds. Several are being pitched to publishers.",
         "Upgraded and republished 20+ legacy titles to Unity 6, resolving compatibility issues and Google Play requirements including 16 KB page-size support.",
         "Reduced web and mobile build sizes using texture and mesh compression, profiling-led optimisation, and Addressables."
       ],
-      "highlight": "Built 5+ hypercasual prototypes and upgraded 20+ legacy titles to Unity 6."
+      "highlight": "Built 5+ mobile hypercasual prototypes and upgraded 20+ legacy titles to Unity 6."
     },
     {
       "studio": "BNJMO",
@@ -458,12 +461,12 @@
     },
     {
       "name": "French",
-      "level": "Fluent"
+      "level": "Basic"
     }
   ],
   "earlierWork": "Earlier titles include Slash And Dash (BPM-driven obstacle generation and background VFX) and DaQueen (ragdoll controller and Photon multiplayer), alongside a back catalogue of 20+ legacy titles restored and republished to current store requirements.",
   "resume": {
-    "summary": "Unity developer building games since 2019 and working in professional studios since 2023. Specialises in gameplay systems, reusable UI architecture, and multiplayer features for PC, Android, and WebGL.",
+    "summary": "Unity developer with 9 shipped titles, building games since 2019 and working in professional studios since 2023. Specialises in mobile hypercasual gameplay, reusable UI architecture, and multiplayer features for Android, WebGL, and PC.",
     "skills": [
       {
         "label": "Gameplay & architecture",
@@ -484,7 +487,7 @@
         "role": "Unity Developer",
         "dates": "Feb 2026 – Present",
         "bullets": [
-          "Built 5+ hypercasual prototypes, owning gameplay systems, UI, and release readiness solo on most builds. Several are being pitched to publishers.",
+          "Built 5+ mobile hypercasual prototypes, owning gameplay systems, UI, and release readiness solo on most builds. Several are being pitched to publishers.",
           "Upgraded and republished 20+ legacy titles to Unity 6, resolving compatibility issues and Google Play requirements including 16 KB page-size support.",
           "Reduced web and mobile build sizes using texture and mesh compression, profiling-led optimisation, and Addressables."
         ]

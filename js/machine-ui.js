@@ -18,10 +18,11 @@ document.getElementById('board-resume').href = profileData.resume;
 document.querySelector('[data-section="work"] span').textContent = String(data.projects.length).padStart(2, '0');
 
 function profile() {
+  const released = data.projects.find(p => p.slug === 'the-amazing-saniboy');
   const metrics = (data.metrics || []).map(item => `<div class="metric"><strong>${esc(item.value)}</strong><span>${esc(item.label)}</span></div>`).join('');
   const education = (data.education || []).map(item => `<article class="education-item"><h3>${esc(item.title)}</h3><p>${esc(item.institution)}${item.dates ? ` · ${esc(item.dates)}` : ''}</p></article>`).join('');
   const languages = (data.languages || []).map(item => `<li><strong>${esc(item.name)}</strong><span>${esc(item.level)}</span></li>`).join('');
-  return `<p class="section-kicker">01 / Meet the developer</p><div class="profile-layout"><div><h2>${esc(profileData.title)}</h2><p class="profile-specialty">${esc(profileData.specialty)}</p><p>${esc(profileData.intro)}</p><div class="screen-actions"><button type="button" class="screen-button primary" data-open="work">Explore my work <span aria-hidden="true">↗</span></button>${external(profileData.resume, 'Résumé', 'screen-button')}<a class="text-link" href="mailto:${esc(profileData.email)}">Let's talk <span aria-hidden="true">↗</span></a></div><p class="profile-footnote">${esc(profileData.location)} · ${esc(profileData.availability)}</p></div>${metrics ? `<div class="metric-grid">${metrics}</div>` : ''}</div><div class="profile-background">${education ? `<section><h3>Education</h3>${education}</section>` : ''}${languages ? `<section><h3>Languages</h3><ul class="language-list">${languages}</ul></section>` : ''}</div>`;
+  return `<p class="section-kicker">01 / Meet the developer</p><div class="profile-layout"><div><h2>${esc(profileData.title)}</h2><p class="profile-positioning">${esc(profileData.shippedTitles)} shipped titles · Mobile & WebGL</p><p class="profile-specialty">${esc(profileData.specialty)}</p><p>${esc(profileData.intro)}</p><button type="button" class="released-game-proof" data-featured-release><span>RELEASED ON GOOGLE PLAY</span><strong>${esc(released.title)} ↗</strong><span>100k+ downloads · 4.7-star rating</span></button><div class="screen-actions"><button type="button" class="screen-button primary" data-open="work">Explore my work <span aria-hidden="true">↗</span></button>${external(profileData.resume, 'Résumé', 'screen-button')}<a class="text-link" href="mailto:${esc(profileData.email)}">Let's talk <span aria-hidden="true">↗</span></a></div><p class="profile-footnote">${esc(profileData.location)} · ${esc(profileData.availability)}</p></div>${metrics ? `<div class="metric-grid">${metrics}</div>` : ''}</div><div class="profile-background">${education ? `<section><h3>Education</h3>${education}</section>` : ''}${languages ? `<section><h3>Languages</h3><ul class="language-list">${languages}</ul></section>` : ''}</div>`;
 }
 
 function work() {
@@ -58,7 +59,7 @@ function toolkit() {
 }
 
 function contact() {
-  return `<p class="section-kicker">05 / Contact</p><div class="contact-content"><div><h2>Let's build something.</h2><p>${esc(profileData.availability)}</p><div class="screen-actions"><a class="screen-button primary" href="mailto:${esc(profileData.email)}">Email Saif <span aria-hidden="true">↗</span></a>${external(profileData.resume, 'View résumé', 'screen-button')}</div></div><div class="contact-details"><dl><dt>Email</dt><dd><a class="text-link" href="mailto:${esc(profileData.email)}">${esc(profileData.email)}</a></dd>${profileData.phone ? `<dt>Phone</dt><dd><a class="text-link" href="tel:${esc(profileData.phone.replace(/[^+\d]/g, ''))}">${esc(profileData.phone)}</a></dd>` : ''}<dt>Location</dt><dd>${esc(profileData.location)}</dd></dl><div class="contact-links">${external(profileData.github, 'GitHub')}${external(profileData.linkedin, 'LinkedIn')}</div></div></div>`;
+  return `<p class="section-kicker">05 / Contact</p><div class="contact-content"><div><h2>Let's build something.</h2><p>${esc(profileData.opportunities)}</p><div class="screen-actions"><a class="screen-button primary" href="mailto:${esc(profileData.email)}">Email Saif <span aria-hidden="true">↗</span></a>${external(profileData.resume, 'View résumé', 'screen-button')}</div></div><div class="contact-details"><dl><dt>Email</dt><dd><a class="text-link" href="mailto:${esc(profileData.email)}">${esc(profileData.email)}</a></dd>${profileData.phone ? `<dt>Phone</dt><dd><a class="text-link" href="tel:${esc(profileData.phone.replace(/[^+\d]/g, ''))}">${esc(profileData.phone)}</a></dd>` : ''}<dt>Location</dt><dd>${esc(profileData.location)}</dd></dl><div class="contact-links">${external(profileData.github, 'GitHub')}${external(profileData.linkedin, 'LinkedIn')}</div></div></div>`;
 }
 
 function stopMedia() { content.querySelectorAll('video').forEach(video => { video.pause(); video.removeAttribute('src'); video.load(); }); }
@@ -173,6 +174,7 @@ screen.addEventListener('click', event => {
   if (!button) return;
   if (button.classList.contains('screen-brand')) { event.preventDefault(); enter('about'); }
   if (button.dataset.section) enter(button.dataset.section, false);
+  if (button.hasAttribute('data-featured-release')) selectProject(data.projects.findIndex(p => p.slug === 'the-amazing-saniboy'));
   if (button.dataset.open) enter(button.dataset.open);
   if (button.dataset.project != null) selectProject(Number(button.dataset.project), `[data-project="${button.dataset.project}"]`);
   if (button.dataset.step) selectProject(project + Number(button.dataset.step), `[data-step="${button.dataset.step}"]`);

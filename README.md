@@ -29,7 +29,7 @@ Set `PORT` to use another local port. GitHub Pages publishes the committed stati
 - `classic.html` preserves older normal-version links; `preview.html` preserves the arcade preview. Both use production canonical URLs and are excluded from indexing.
 - `bundle/`, `prerender.mjs`, `build-experiences.mjs`, and `js/arcade3d.js` are retained historical sources. The active build no longer imports them or parses the original design export.
 
-Only The Amazing SaniBoy and Albert's Ark Idle are labelled publicly released, as confirmed by the portfolio owner. Other statuses distinguish completed work awaiting release, playtested prototypes, and unreleased studio projects. The two selected public releases are separate from the 20+ legacy titles restored and republished at StolenPad. Download/rating milestones describe SaniBoy, rather than claiming sole credit for a team's commercial outcome. The latest résumé documents game development since 2019 and professional studio work since 2023.
+The portfolio owner confirms nine shipped titles overall. Two of the seven featured case studies, The Amazing SaniBoy and Albert's Ark Idle, are publicly released. Other case statuses distinguish completed work awaiting release, playtested prototypes, and unreleased studio projects. The 20+ legacy titles restored and republished at StolenPad are described separately. Download/rating milestones describe SaniBoy, rather than claiming sole credit for a team's commercial outcome. The résumé source documents game development since 2019, studio work since 2023, and Basic French.
 
 To change the résumé destination, update `profile.resume` and run `npm run build`. Both presentations open the same external link in a new tab.
 
@@ -40,6 +40,8 @@ The normal presentation uses graphite (`#0d1117`), slate surfaces (`#141a23` / `
 Project footage supplies the rich color. Typography, fine borders, deliberate spacing, and readable 16px case-study copy establish the visual hierarchy. Mobile uses a visible native project selector and large primary actions. All seven cases have shareable static URLs, such as `/projects/the-amazing-saniboy/#work`. Reload, back/forward, keyboard selection, and copy links preserve the chosen project. Case content is rendered before JavaScript, and the no-script view exposes the remaining projects.
 
 Project order in `data/portfolio.json` sets the lead project everywhere: Maleficus is first in the homepage feature, normal project browser, and arcade. The homepage exposes contribution highlights alongside footage, with role details and the full skills list behind native disclosure controls. Overview selection uses `/?project=project-slug#work`.
+
+The opening copy states the Unity role and nine shipped titles plainly. A separate SaniBoy release highlight surfaces its download/rating milestones beside Maleficus, and opens that case study. Mobile hypercasual work is explicit in StolenPad's experience; puzzle games are identified as a hiring interest rather than an unsupported project credit.
 
 Full case studies open directly with the project, challenge, contribution, and outcome. The project chooser follows the story; navigation to another case loads its static page and matching metadata. The return link restores the same project on the overview. Global navigation consistently returns to the portfolio sections. Case pages do not repeat the homepage hero, experience, and toolkit. Arcade content follows the same project order, with all details available on the machine.
 
